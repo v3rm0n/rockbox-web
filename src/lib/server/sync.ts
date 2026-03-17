@@ -7,6 +7,30 @@ import path from 'node:path';
 
 const log = createLogger('sync');
 
+/**
+ * Create a directory and all its parents, one level at a time.
+ * More robust than mkdirSync({ recursive: true }) on FAT32/vfat filesystems
+ * which can fail with ENOENT on recursive mkdir through Docker bind mounts.
+ */
+function ensureDirSync(targetDir: string): void {
+	if (fs.existsSync(targetDir)) return;
+
+	const parent = path.dirname(targetDir);
+	if (parent !== targetDir) {
+		ensureDirSync(parent);
+	}
+
+	try {
+		fs.mkdirSync(targetDir);
+	} catch (err: unknown) {
+		// EEXIST is fine — another operation may have created it
+		if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EEXIST') {
+			return;
+		}
+		throw err;
+	}
+}
+
 export interface SyncProgress {
 	phase: 'copying' | 'removing' | 'complete' | 'error';
 	current: number;
@@ -72,9 +96,19 @@ export async function copyToPlayer(
 		});
 
 		try {
-			// Ensure destination directory exists
+			// Ensure source file exists
+			if (!fs.existsSync(srcPath)) {
+				failed++;
+				const msg = `Source file not found: ${srcPath}`;
+				log.error('Source file missing during copy', { srcPath, relativePath: track.relative_path });
+				errors.push(`Failed to copy ${track.relative_path}: ${msg}`);
+				db.prepare('UPDATE jobs SET progress = ? WHERE id = ?').run(i + 1, jobId);
+				continue;
+			}
+
+			// Ensure destination directory exists (level-by-level for FAT32 compatibility)
 			const destDir = path.dirname(destPath);
-			fs.mkdirSync(destDir, { recursive: true });
+			ensureDirSync(destDir);
 
 			// Copy file
 			fs.copyFileSync(srcPath, destPath);
@@ -88,6 +122,12 @@ export async function copyToPlayer(
 		} catch (err) {
 			failed++;
 			const msg = err instanceof Error ? err.message : 'Unknown error';
+			log.error('Failed to copy track', {
+				relativePath: track.relative_path,
+				srcPath,
+				destPath,
+				error: msg
+			});
 			errors.push(`Failed to copy ${track.relative_path}: ${msg}`);
 		}
 
