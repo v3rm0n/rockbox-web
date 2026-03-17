@@ -1,9 +1,12 @@
 import db from './db.js';
 import { getManagedDir, getPlayerPath } from './settings.js';
 import { isSupportedAudioFile } from './metadata.js';
+import { createLogger } from './logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ScanProgress } from './scanner.js';
+
+const log = createLogger('player');
 
 type ProgressCallback = (progress: ScanProgress) => void;
 
@@ -68,7 +71,10 @@ export function listPlayerDirectories(subPath?: string): { name: string; path: s
  */
 export async function scanPlayer(onProgress?: ProgressCallback): Promise<void> {
 	const managedPath = getPlayerManagedPath();
+	log.info('Starting player scan', { managedPath });
+
 	if (!managedPath) {
+		log.error('Managed directory not configured');
 		onProgress?.({
 			phase: 'error',
 			current: 0,
@@ -79,6 +85,7 @@ export async function scanPlayer(onProgress?: ProgressCallback): Promise<void> {
 	}
 
 	if (!fs.existsSync(managedPath)) {
+		log.error('Managed directory does not exist on player', { managedPath });
 		onProgress?.({
 			phase: 'error',
 			current: 0,
@@ -92,11 +99,17 @@ export async function scanPlayer(onProgress?: ProgressCallback): Promise<void> {
 		.prepare("INSERT INTO jobs (type, status) VALUES ('player_scan', 'running')")
 		.run();
 	const jobId = job.lastInsertRowid;
+	log.info('Created player scan job', { jobId });
 
 	try {
 		onProgress?.({ phase: 'discovering', current: 0, total: 0 });
 		const files = walkDir(managedPath);
 		const total = files.length;
+
+		log.info('Player file discovery complete', { totalFiles: total, managedPath });
+		if (total === 0) {
+			log.warn('No audio files found on player', { managedPath });
+		}
 
 		db.prepare('UPDATE jobs SET total = ? WHERE id = ?').run(total, jobId);
 		onProgress?.({ phase: 'scanning', current: 0, total });
@@ -136,9 +149,14 @@ export async function scanPlayer(onProgress?: ProgressCallback): Promise<void> {
 		db.prepare(
 			"UPDATE jobs SET status = 'completed', progress = total, finished_at = datetime('now') WHERE id = ?"
 		).run(jobId);
+
+		const orphanCount = (db.prepare('SELECT COUNT(*) as count FROM player_tracks WHERE is_orphan = 1').get() as { count: number }).count;
+		const totalTracks = (db.prepare('SELECT COUNT(*) as count FROM player_tracks').get() as { count: number }).count;
+		log.info('Player scan completed', { jobId, totalFiles: total, tracksInDb: totalTracks, orphans: orphanCount });
 		onProgress?.({ phase: 'complete', current: total, total });
 	} catch (err) {
 		const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+		log.error('Player scan failed', { jobId, error: errorMsg });
 		db.prepare(
 			"UPDATE jobs SET status = 'failed', error = ?, finished_at = datetime('now') WHERE id = ?"
 		).run(errorMsg, jobId);
@@ -174,8 +192,10 @@ export function getPlayerStorage(): {
 			managedSize = playerTracks.total;
 		}
 
+		log.debug('Player storage info', { playerPath, total, used, free, managedSize });
 		return { total, used, free, managedSize };
-	} catch {
+	} catch (err) {
+		log.error('Failed to get player storage info', { playerPath, error: err instanceof Error ? err.message : String(err) });
 		return { total: 0, used: 0, free: 0, managedSize: 0 };
 	}
 }

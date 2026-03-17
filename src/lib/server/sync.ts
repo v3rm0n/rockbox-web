@@ -1,8 +1,11 @@
 import db from './db.js';
 import { getLibraryPath } from './settings.js';
 import { getPlayerManagedPath } from './player.js';
+import { createLogger } from './logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
+
+const log = createLogger('sync');
 
 export interface SyncProgress {
 	phase: 'copying' | 'removing' | 'complete' | 'error';
@@ -26,8 +29,11 @@ export async function copyToPlayer(
 	const managedPath = getPlayerManagedPath();
 
 	if (!managedPath) {
+		log.error('Cannot copy to player: managed directory not configured');
 		throw new Error('Managed directory not configured');
 	}
+
+	log.info('Starting copy to player', { trackCount: trackIds.length, managedPath });
 
 	const job = db.prepare("INSERT INTO jobs (type, status, total) VALUES ('sync', 'running', ?)").run(trackIds.length);
 	const jobId = job.lastInsertRowid;
@@ -92,6 +98,7 @@ export async function copyToPlayer(
 		"UPDATE jobs SET status = 'completed', progress = total, finished_at = datetime('now') WHERE id = ?"
 	).run(jobId);
 
+	log.info('Copy to player completed', { copied, failed, errors: errors.length > 0 ? errors : undefined });
 	onProgress?.({ phase: 'complete', current: trackIds.length, total: trackIds.length });
 
 	return { copied, failed, errors };
@@ -108,8 +115,11 @@ export async function removeFromPlayer(
 	const managedPath = getPlayerManagedPath();
 
 	if (!managedPath) {
+		log.error('Cannot remove from player: managed directory not configured');
 		throw new Error('Managed directory not configured');
 	}
+
+	log.info('Starting removal from player', { trackCount: trackIds.length, managedPath });
 
 	const job = db.prepare("INSERT INTO jobs (type, status, total) VALUES ('sync', 'running', ?)").run(trackIds.length);
 	const jobId = job.lastInsertRowid;
@@ -174,6 +184,7 @@ export async function removeFromPlayer(
 		"UPDATE jobs SET status = 'completed', progress = total, finished_at = datetime('now') WHERE id = ?"
 	).run(jobId);
 
+	log.info('Removal from player completed', { removed, failed, errors: errors.length > 0 ? errors : undefined });
 	onProgress?.({ phase: 'complete', current: trackIds.length, total: trackIds.length });
 
 	return { removed, failed, errors };

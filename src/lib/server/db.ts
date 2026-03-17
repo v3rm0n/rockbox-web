@@ -1,6 +1,9 @@
 import Database from 'better-sqlite3';
 import path from 'node:path';
 import fs from 'node:fs';
+import { createLogger } from './logger.js';
+
+const log = createLogger('db');
 
 let _db: Database.Database | null = null;
 
@@ -8,13 +11,15 @@ function getDb(): Database.Database {
 	if (_db) return _db;
 
 	const dataDir = process.env.DATA_DIR || '/data';
+	const dbPath = path.join(dataDir, 'rockbox.db');
+
+	log.info('Initializing database', { dataDir, dbPath });
 
 	// Ensure data directory exists
 	if (!fs.existsSync(dataDir)) {
+		log.info('Creating data directory', { dataDir });
 		fs.mkdirSync(dataDir, { recursive: true });
 	}
-
-	const dbPath = path.join(dataDir, 'rockbox.db');
 
 	_db = new Database(dbPath);
 
@@ -25,10 +30,13 @@ function getDb(): Database.Database {
 	// Run migrations
 	migrate(_db);
 
+	log.info('Database initialized successfully', { dbPath });
+
 	return _db;
 }
 
 function migrate(db: Database.Database): void {
+	log.info('Running database migrations');
 	db.exec(`
 		CREATE TABLE IF NOT EXISTS settings (
 			key   TEXT PRIMARY KEY,

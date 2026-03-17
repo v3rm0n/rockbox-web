@@ -1,6 +1,9 @@
 import { extractMetadata, isSupportedAudioFile } from './metadata.js';
+import { createLogger } from './logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
+
+const log = createLogger('migrate');
 
 export interface MigrationPlan {
 	moves: { from: string; to: string }[];
@@ -76,10 +79,12 @@ export async function planMigration(
 		alreadyCorrect: []
 	};
 
+	log.info('Planning migration', { managedPath });
 	onProgress?.({ phase: 'planning', current: 0, total: 0 });
 
 	const files = walkDir(managedPath);
 	const total = files.length;
+	log.info('Found files for migration planning', { totalFiles: total });
 
 	for (let i = 0; i < files.length; i++) {
 		const filePath = files[i];
@@ -199,6 +204,7 @@ export async function executeMigration(
 		}
 	}
 
+	log.info('Migration execution completed', { moved, unsorted: unsortedCount, errors: errors.length });
 	onProgress?.({ phase: 'complete', current: total, total });
 
 	return { moved, unsorted: unsortedCount, errors };

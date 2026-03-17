@@ -1,5 +1,8 @@
 import { parseFile } from 'music-metadata';
 import path from 'node:path';
+import { createLogger } from './logger.js';
+
+const log = createLogger('metadata');
 
 const SUPPORTED_EXTENSIONS = new Set(['.flac', '.mp3', '.ogg', '.aac', '.wav', '.m4a']);
 
@@ -55,7 +58,11 @@ export async function extractMetadata(filePath: string): Promise<TrackMetadata |
 			bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : null,
 			sampleRate: format.sampleRate || null
 		};
-	} catch {
+	} catch (err) {
+		log.warn('Failed to extract metadata from file', {
+			file: filePath,
+			error: err instanceof Error ? err.message : String(err)
+		});
 		return null;
 	}
 }

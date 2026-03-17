@@ -1,8 +1,11 @@
 import db from './db.js';
 import { getLibraryPath } from './settings.js';
 import { extractMetadata, isSupportedAudioFile } from './metadata.js';
+import { createLogger } from './logger.js';
 import fs from 'node:fs';
 import path from 'node:path';
+
+const log = createLogger('scanner');
 
 export interface ScanProgress {
 	phase: 'discovering' | 'scanning' | 'complete' | 'error';
@@ -40,10 +43,30 @@ function walkDir(dir: string): string[] {
  */
 export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> {
 	const libraryPath = getLibraryPath();
+	log.info('Starting library scan', { libraryPath });
 
 	if (!fs.existsSync(libraryPath)) {
+		log.error('Library path does not exist', { libraryPath });
 		onProgress?.({ phase: 'error', current: 0, total: 0, error: 'Library path does not exist' });
 		return;
+	}
+
+	// Check if library directory is readable and non-empty
+	try {
+		const topLevelEntries = fs.readdirSync(libraryPath);
+		log.info('Library directory contents', {
+			libraryPath,
+			entryCount: topLevelEntries.length,
+			entries: topLevelEntries.slice(0, 20)
+		});
+		if (topLevelEntries.length === 0) {
+			log.warn('Library directory is empty — no files to scan. Check your volume mount.', { libraryPath });
+		}
+	} catch (err) {
+		log.error('Cannot read library directory', {
+			libraryPath,
+			error: err instanceof Error ? err.message : String(err)
+		});
 	}
 
 	// Create job record
@@ -51,12 +74,18 @@ export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> 
 		.prepare("INSERT INTO jobs (type, status) VALUES ('library_scan', 'running')")
 		.run();
 	const jobId = job.lastInsertRowid;
+	log.info('Created scan job', { jobId });
 
 	try {
 		// Phase 1: Discover files
 		onProgress?.({ phase: 'discovering', current: 0, total: 0 });
 		const files = walkDir(libraryPath);
 		const total = files.length;
+
+		log.info('File discovery complete', { totalFiles: total, libraryPath });
+		if (total === 0) {
+			log.warn('No supported audio files found in library. Supported formats: .flac, .mp3, .ogg, .aac, .wav, .m4a', { libraryPath });
+		}
 
 		db.prepare('UPDATE jobs SET total = ? WHERE id = ?').run(total, jobId);
 		onProgress?.({ phase: 'scanning', current: 0, total });
@@ -94,6 +123,10 @@ export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> 
 				scanned_at = datetime('now')
 		`);
 
+		let skippedCount = 0;
+		let insertedCount = 0;
+		let metadataFailCount = 0;
+
 		for (let i = 0; i < files.length; i++) {
 			const filePath = files[i];
 			const relativePath = path.relative(libraryPath, filePath);
@@ -106,6 +139,7 @@ export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> 
 
 			if (existingMtime !== undefined && existingMtime === mtime) {
 				// File unchanged, skip metadata extraction
+				skippedCount++;
 				if (i % 100 === 0) {
 					onProgress?.({ phase: 'scanning', current: i + 1, total, currentFile: relativePath });
 					db.prepare('UPDATE jobs SET progress = ? WHERE id = ?').run(i + 1, jobId);
@@ -133,6 +167,10 @@ export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> 
 					stat.size,
 					mtime
 				);
+				insertedCount++;
+			} else {
+				metadataFailCount++;
+				log.warn('Failed to extract metadata', { file: relativePath });
 			}
 
 			if (i % 10 === 0) {
@@ -141,6 +179,13 @@ export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> 
 			}
 		}
 
+		log.info('Scan processing summary', {
+			total,
+			inserted: insertedCount,
+			skippedUnchanged: skippedCount,
+			metadataFailed: metadataFailCount
+		});
+
 		// Remove tracks no longer present on disk
 		const allPaths = (
 			db.prepare('SELECT relative_path FROM library_tracks').all() as {
@@ -148,19 +193,29 @@ export async function scanLibrary(onProgress?: ProgressCallback): Promise<void> 
 			}[]
 		).map((t) => t.relative_path);
 
+		let removedCount = 0;
 		const deleteStmt = db.prepare('DELETE FROM library_tracks WHERE relative_path = ?');
 		for (const existingPath of allPaths) {
 			if (!seenPaths.has(existingPath)) {
 				deleteStmt.run(existingPath);
+				removedCount++;
 			}
+		}
+
+		if (removedCount > 0) {
+			log.info('Removed stale tracks no longer on disk', { removedCount });
 		}
 
 		db.prepare(
 			"UPDATE jobs SET status = 'completed', progress = total, finished_at = datetime('now') WHERE id = ?"
 		).run(jobId);
+
+		const dbTrackCount = (db.prepare('SELECT COUNT(*) as count FROM library_tracks').get() as { count: number }).count;
+		log.info('Library scan completed', { jobId, totalFiles: total, tracksInDb: dbTrackCount, removedCount });
 		onProgress?.({ phase: 'complete', current: total, total });
 	} catch (err) {
 		const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+		log.error('Library scan failed', { jobId, error: errorMsg });
 		db.prepare(
 			"UPDATE jobs SET status = 'failed', error = ?, finished_at = datetime('now') WHERE id = ?"
 		).run(errorMsg, jobId);

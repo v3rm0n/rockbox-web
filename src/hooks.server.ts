@@ -1,6 +1,49 @@
 import { redirect } from '@sveltejs/kit';
-import { isSetupComplete } from '$lib/server/settings.js';
+import { isSetupComplete, getLibraryPath, getPlayerPath } from '$lib/server/settings.js';
+import { createLogger } from '$lib/server/logger.js';
 import type { Handle } from '@sveltejs/kit';
+import fs from 'node:fs';
+
+const log = createLogger('server');
+
+// Log startup configuration on first import
+log.info('Rockbox Web Manager starting', {
+	nodeEnv: process.env.NODE_ENV,
+	libraryPath: getLibraryPath(),
+	playerPath: getPlayerPath(),
+	dataDir: process.env.DATA_DIR || '/data',
+	origin: process.env.ORIGIN || '(not set)'
+});
+
+// Check mount points at startup
+const libraryPath = getLibraryPath();
+const playerPath = getPlayerPath();
+
+if (!fs.existsSync(libraryPath)) {
+	log.warn('Library path does not exist at startup', { libraryPath });
+} else {
+	try {
+		const entries = fs.readdirSync(libraryPath);
+		if (entries.length === 0) {
+			log.warn('Library directory exists but is EMPTY — volume mount may not be working', { libraryPath });
+		} else {
+			log.info('Library directory accessible', { libraryPath, entryCount: entries.length });
+		}
+	} catch (err) {
+		log.error('Cannot read library directory', { libraryPath, error: err instanceof Error ? err.message : String(err) });
+	}
+}
+
+if (!fs.existsSync(playerPath)) {
+	log.warn('Player path does not exist at startup', { playerPath });
+} else {
+	try {
+		const entries = fs.readdirSync(playerPath);
+		log.info('Player directory accessible', { playerPath, entryCount: entries.length, entries: entries.slice(0, 10) });
+	} catch (err) {
+		log.error('Cannot read player directory', { playerPath, error: err instanceof Error ? err.message : String(err) });
+	}
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Redirect to setup if not completed (except for setup routes and API)
@@ -9,6 +52,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		!event.url.pathname.startsWith('/api') &&
 		!isSetupComplete()
 	) {
+		log.info('Redirecting to setup — setup not complete', { path: event.url.pathname });
 		throw redirect(302, '/setup');
 	}
 
