@@ -20,11 +20,11 @@ A web application for managing music on [Rockbox](https://www.rockbox.org/) medi
 ## How it works
 
 ```
-NAS                              Docker Container                    Player
-┌──────────────┐                ┌──────────────────┐              ┌──────────┐
-│ Music Library │──── /library ─│  Rockbox Web App  │── /player ──│  Rockbox │
-│ (Lidarr, etc.)│   (read-only) │  SvelteKit + SQLite│ (read-write)│  Device  │
-└──────────────┘                └──────────────────┘              └──────────┘
+NAS                                Docker Container                    Player
+┌────────────────┐                ┌────────────────────┐             ┌──────────┐
+│ Music Library  │──── /library ──│  Rockbox Web App   │── /player ──│  Rockbox │
+│ (Lidarr, etc.) │   (read-only)  │  SvelteKit + SQLite│ (read-write)│  Device  │
+└────────────────┘                └────────────────────┘             └──────────┘
 ```
 
 The app expects a well-structured music library (e.g. managed by [Lidarr](https://lidarr.audio/)) and mirrors that structure on the player. File matching is done by relative path — if `/library/Artist/Album/01 - Song.flac` exists and the same path exists under the managed directory on the player, it's considered synced.
