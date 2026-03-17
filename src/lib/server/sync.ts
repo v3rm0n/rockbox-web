@@ -1,0 +1,180 @@
+import db from './db.js';
+import { getLibraryPath } from './settings.js';
+import { getPlayerManagedPath } from './player.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+export interface SyncProgress {
+	phase: 'copying' | 'removing' | 'complete' | 'error';
+	current: number;
+	total: number;
+	currentFile?: string;
+	error?: string;
+}
+
+type ProgressCallback = (progress: SyncProgress) => void;
+
+/**
+ * Copy tracks from the library to the player.
+ * Accepts an array of library track IDs.
+ */
+export async function copyToPlayer(
+	trackIds: number[],
+	onProgress?: ProgressCallback
+): Promise<{ copied: number; failed: number; errors: string[] }> {
+	const libraryPath = getLibraryPath();
+	const managedPath = getPlayerManagedPath();
+
+	if (!managedPath) {
+		throw new Error('Managed directory not configured');
+	}
+
+	const job = db.prepare("INSERT INTO jobs (type, status, total) VALUES ('sync', 'running', ?)").run(trackIds.length);
+	const jobId = job.lastInsertRowid;
+
+	const getTrack = db.prepare('SELECT * FROM library_tracks WHERE id = ?');
+	const insertPlayerTrack = db.prepare(`
+		INSERT OR REPLACE INTO player_tracks (relative_path, library_track_id, file_size, is_orphan, synced_at)
+		VALUES (?, ?, ?, 0, datetime('now'))
+	`);
+
+	let copied = 0;
+	let failed = 0;
+	const errors: string[] = [];
+
+	for (let i = 0; i < trackIds.length; i++) {
+		const track = getTrack.get(trackIds[i]) as {
+			id: number;
+			relative_path: string;
+			file_size: number;
+		} | undefined;
+
+		if (!track) {
+			failed++;
+			errors.push(`Track ID ${trackIds[i]} not found`);
+			continue;
+		}
+
+		const srcPath = path.join(libraryPath, track.relative_path);
+		const destPath = path.join(managedPath, track.relative_path);
+
+		onProgress?.({
+			phase: 'copying',
+			current: i + 1,
+			total: trackIds.length,
+			currentFile: track.relative_path
+		});
+
+		try {
+			// Ensure destination directory exists
+			const destDir = path.dirname(destPath);
+			fs.mkdirSync(destDir, { recursive: true });
+
+			// Copy file
+			fs.copyFileSync(srcPath, destPath);
+
+			// Get actual copied file size
+			const stat = fs.statSync(destPath);
+
+			// Update database
+			insertPlayerTrack.run(track.relative_path, track.id, stat.size);
+			copied++;
+		} catch (err) {
+			failed++;
+			const msg = err instanceof Error ? err.message : 'Unknown error';
+			errors.push(`Failed to copy ${track.relative_path}: ${msg}`);
+		}
+
+		db.prepare('UPDATE jobs SET progress = ? WHERE id = ?').run(i + 1, jobId);
+	}
+
+	db.prepare(
+		"UPDATE jobs SET status = 'completed', progress = total, finished_at = datetime('now') WHERE id = ?"
+	).run(jobId);
+
+	onProgress?.({ phase: 'complete', current: trackIds.length, total: trackIds.length });
+
+	return { copied, failed, errors };
+}
+
+/**
+ * Remove tracks from the player.
+ * Accepts an array of player track IDs.
+ */
+export async function removeFromPlayer(
+	trackIds: number[],
+	onProgress?: ProgressCallback
+): Promise<{ removed: number; failed: number; errors: string[] }> {
+	const managedPath = getPlayerManagedPath();
+
+	if (!managedPath) {
+		throw new Error('Managed directory not configured');
+	}
+
+	const job = db.prepare("INSERT INTO jobs (type, status, total) VALUES ('sync', 'running', ?)").run(trackIds.length);
+	const jobId = job.lastInsertRowid;
+
+	const getTrack = db.prepare('SELECT * FROM player_tracks WHERE id = ?');
+	const deleteTrack = db.prepare('DELETE FROM player_tracks WHERE id = ?');
+
+	let removed = 0;
+	let failed = 0;
+	const errors: string[] = [];
+
+	for (let i = 0; i < trackIds.length; i++) {
+		const track = getTrack.get(trackIds[i]) as {
+			id: number;
+			relative_path: string;
+		} | undefined;
+
+		if (!track) {
+			failed++;
+			errors.push(`Player track ID ${trackIds[i]} not found`);
+			continue;
+		}
+
+		const filePath = path.join(managedPath, track.relative_path);
+
+		onProgress?.({
+			phase: 'removing',
+			current: i + 1,
+			total: trackIds.length,
+			currentFile: track.relative_path
+		});
+
+		try {
+			if (fs.existsSync(filePath)) {
+				fs.unlinkSync(filePath);
+
+				// Clean up empty parent directories
+				let dir = path.dirname(filePath);
+				while (dir !== managedPath) {
+					const entries = fs.readdirSync(dir);
+					if (entries.length === 0) {
+						fs.rmdirSync(dir);
+						dir = path.dirname(dir);
+					} else {
+						break;
+					}
+				}
+			}
+
+			deleteTrack.run(track.id);
+			removed++;
+		} catch (err) {
+			failed++;
+			const msg = err instanceof Error ? err.message : 'Unknown error';
+			errors.push(`Failed to remove ${track.relative_path}: ${msg}`);
+		}
+
+		db.prepare('UPDATE jobs SET progress = ? WHERE id = ?').run(i + 1, jobId);
+	}
+
+	db.prepare(
+		"UPDATE jobs SET status = 'completed', progress = total, finished_at = datetime('now') WHERE id = ?"
+	).run(jobId);
+
+	onProgress?.({ phase: 'complete', current: trackIds.length, total: trackIds.length });
+
+	return { removed, failed, errors };
+}
