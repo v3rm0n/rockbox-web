@@ -22,7 +22,19 @@
 		player_track_id: number | null;
 	}
 
+	interface LibraryStats {
+		total_tracks: number;
+		total_albums: number;
+		total_artists: number;
+		total_size: number;
+		total_duration: number;
+		synced_tracks: number;
+		format_breakdown: { format: string; count: number; total_size: number }[];
+	}
+
 	let tracks = $state<Track[]>([]);
+	let stats = $state<LibraryStats | null>(null);
+	let playerFreeSpace = $state<number | null>(null);
 	let searchQuery = $state('');
 	let syncFilter = $state('all');
 	let sortBy = $state('artist');
@@ -33,6 +45,22 @@
 	let loading = $state(true);
 	let selectedIds = $state<Set<number>>(new Set());
 	let syncing = $state(false);
+
+	function formatBytes(bytes: number): string {
+		if (bytes === 0) return '0 B';
+		const k = 1024;
+		const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+	}
+
+	function formatDurationLong(seconds: number): string {
+		const days = Math.floor(seconds / 86400);
+		const hours = Math.floor((seconds % 86400) / 3600);
+		if (days > 0) return `${days}d ${hours}h`;
+		const mins = Math.floor((seconds % 3600) / 60);
+		return `${hours}h ${mins}m`;
+	}
 
 	function formatDuration(seconds: number | null): string {
 		if (!seconds) return '--:--';
@@ -47,6 +75,24 @@
 		if (track.bitrate) parts.push(`${track.bitrate}k`);
 		return parts.join(' ') || '-';
 	}
+
+	async function loadStats() {
+		const [statsRes, storageRes] = await Promise.all([
+			fetch('/api/library/stats'),
+			fetch('/api/player/storage')
+		]);
+		stats = await statsRes.json();
+		const storageData = await storageRes.json();
+		playerFreeSpace = storageData.storage?.free ?? null;
+	}
+
+	let selectedSize = $derived(
+		tracks.filter(t => selectedIds.has(t.id)).reduce((sum, t) => sum + (t.file_size || 0), 0)
+	);
+
+	let storageWarning = $derived(
+		playerFreeSpace !== null && selectedSize > playerFreeSpace
+	);
 
 	async function loadTracks() {
 		loading = true;
@@ -133,7 +179,7 @@
 
 		selectedIds = new Set();
 		syncing = false;
-		await loadTracks();
+		await Promise.all([loadTracks(), loadStats()]);
 	}
 
 	let unsyncedOnPage = $derived(tracks.filter(t => !t.is_synced));
@@ -141,7 +187,10 @@
 		unsyncedOnPage.length > 0 && unsyncedOnPage.every(t => selectedIds.has(t.id))
 	);
 
-	onMount(loadTracks);
+	onMount(() => {
+		loadTracks();
+		loadStats();
+	});
 </script>
 
 <div class="library-page">
@@ -152,6 +201,21 @@
 				<span class="header-count">{total.toLocaleString()} songs</span>
 			{/if}
 		</div>
+		{#if stats}
+			<div class="stats-bar">
+				<span class="stat-item"><strong>{stats.total_tracks.toLocaleString()}</strong> tracks</span>
+				<span class="stat-sep">·</span>
+				<span class="stat-item"><strong>{stats.total_albums.toLocaleString()}</strong> albums</span>
+				<span class="stat-sep">·</span>
+				<span class="stat-item"><strong>{stats.total_artists.toLocaleString()}</strong> artists</span>
+				<span class="stat-sep">·</span>
+				<span class="stat-item">{formatBytes(stats.total_size)}</span>
+				<span class="stat-sep">·</span>
+				<span class="stat-item">{formatDurationLong(stats.total_duration)}</span>
+				<span class="stat-sep">·</span>
+				<span class="stat-item synced"><strong>{stats.synced_tracks.toLocaleString()}</strong> on player</span>
+			</div>
+		{/if}
 	</header>
 
 	<!-- Search and filters -->
@@ -184,8 +248,16 @@
 
 			{#if selectedIds.size > 0}
 				<div class="selection-actions">
-					<span class="selection-info">{selectedIds.size} selected</span>
-					<button class="btn-action" onclick={syncSelected} disabled={syncing}>
+					<span class="selection-info">
+						{selectedIds.size} selected
+						<span class="selection-size">({formatBytes(selectedSize)})</span>
+					</span>
+					{#if playerFreeSpace !== null}
+						<span class="storage-info" class:warning={storageWarning}>
+							{storageWarning ? '⚠ ' : ''}{formatBytes(playerFreeSpace)} free on player
+						</span>
+					{/if}
+					<button class="btn-action" onclick={syncSelected} disabled={syncing || storageWarning}>
 						{syncing ? 'Syncing...' : `Sync ${selectedIds.size} songs`}
 					</button>
 					<button class="btn-ghost" onclick={() => { selectedIds = new Set(); }}>Clear</button>
@@ -222,9 +294,9 @@
 								title={allUnsyncedSelected ? 'Deselect all' : 'Select all unsynced'}
 							>
 								{#if allUnsyncedSelected && unsyncedOnPage.length > 0}
-									<span class="check-on">&#10003;</span>
+									<span class="check-on">✓</span>
 								{:else if selectedIds.size > 0}
-									<span class="check-partial">&#8211;</span>
+									<span class="check-partial">–</span>
 								{:else}
 									<span class="check-off"></span>
 								{/if}
@@ -235,7 +307,7 @@
 							<button class="sort-btn" onclick={() => toggleSort('title')}>
 								Name
 								{#if sortBy === 'title'}
-									<span class="sort-arrow">{sortOrder === 'asc' ? '&#9650;' : '&#9660;'}</span>
+									<span class="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>
 								{/if}
 							</button>
 						</th>
@@ -243,7 +315,7 @@
 							<button class="sort-btn" onclick={() => toggleSort('artist')}>
 								Artist
 								{#if sortBy === 'artist'}
-									<span class="sort-arrow">{sortOrder === 'asc' ? '&#9650;' : '&#9660;'}</span>
+									<span class="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>
 								{/if}
 							</button>
 						</th>
@@ -251,7 +323,7 @@
 							<button class="sort-btn" onclick={() => toggleSort('album')}>
 								Album
 								{#if sortBy === 'album'}
-									<span class="sort-arrow">{sortOrder === 'asc' ? '&#9650;' : '&#9660;'}</span>
+									<span class="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>
 								{/if}
 							</button>
 						</th>
@@ -259,7 +331,7 @@
 							<button class="sort-btn" onclick={() => toggleSort('duration')}>
 								Time
 								{#if sortBy === 'duration'}
-									<span class="sort-arrow">{sortOrder === 'asc' ? '&#9650;' : '&#9660;'}</span>
+									<span class="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>
 								{/if}
 							</button>
 						</th>
@@ -267,7 +339,7 @@
 							<button class="sort-btn" onclick={() => toggleSort('bitrate')}>
 								Quality
 								{#if sortBy === 'bitrate'}
-									<span class="sort-arrow">{sortOrder === 'asc' ? '&#9650;' : '&#9660;'}</span>
+									<span class="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>
 								{/if}
 							</button>
 						</th>
@@ -286,9 +358,9 @@
 									disabled={!!track.is_synced}
 								>
 									{#if track.is_synced}
-										<span class="check-synced">&#10003;</span>
+										<span class="check-synced">✓</span>
 									{:else if selectedIds.has(track.id)}
-										<span class="check-on">&#10003;</span>
+										<span class="check-on">✓</span>
 									{:else}
 										<span class="check-off"></span>
 									{/if}
@@ -328,7 +400,7 @@
 					disabled={currentPage <= 1}
 					onclick={() => { currentPage--; loadTracks(); }}
 				>
-					&#8592; Previous
+					← Previous
 				</button>
 				<span class="page-info">Page {currentPage} of {totalPages}</span>
 				<button
@@ -336,7 +408,7 @@
 					disabled={currentPage >= totalPages}
 					onclick={() => { currentPage++; loadTracks(); }}
 				>
-					Next &#8594;
+					Next →
 				</button>
 			</div>
 		{/if}
@@ -365,6 +437,29 @@
 	.header-count {
 		font-size: 0.875rem;
 		color: var(--color-text-muted);
+	}
+
+	/* Stats bar */
+	.stats-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-faint);
+		flex-wrap: wrap;
+	}
+
+	.stat-item strong {
+		color: var(--color-text-muted);
+		font-weight: 600;
+	}
+
+	.stat-item.synced strong {
+		color: var(--color-synced);
+	}
+
+	.stat-sep {
+		color: var(--color-border);
 	}
 
 	/* Controls */
@@ -473,6 +568,23 @@
 	.selection-info {
 		font-size: 0.8125rem;
 		color: var(--color-text-muted);
+	}
+
+	.selection-size {
+		color: var(--color-text-faint);
+	}
+
+	.storage-info {
+		font-size: 0.75rem;
+		color: var(--color-text-faint);
+		padding: 0.1875rem 0.5rem;
+		background: var(--color-surface);
+		border-radius: 4px;
+	}
+
+	.storage-info.warning {
+		color: var(--color-danger);
+		background: rgba(212, 80, 80, 0.1);
 	}
 
 	.btn-action {

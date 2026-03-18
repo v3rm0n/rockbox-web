@@ -4,14 +4,12 @@
 	let { children } = $props();
 
 	const navItems = [
-		{ href: '/', label: 'Dashboard', icon: 'dashboard' },
 		{ href: '/library', label: 'Library', icon: 'library' },
 		{ href: '/player', label: 'Player', icon: 'player' },
 		{ href: '/settings', label: 'Settings', icon: 'settings' }
 	];
 
 	function isActive(href: string): boolean {
-		if (href === '/') return page.url.pathname === '/';
 		return page.url.pathname.startsWith(href);
 	}
 </script>
@@ -34,12 +32,7 @@
 						class:active={isActive(item.href)}
 					>
 						<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-							{#if item.icon === 'dashboard'}
-								<rect x="3" y="3" width="7" height="7" rx="1" />
-								<rect x="14" y="3" width="7" height="4" rx="1" />
-								<rect x="14" y="11" width="7" height="10" rx="1" />
-								<rect x="3" y="14" width="7" height="7" rx="1" />
-							{:else if item.icon === 'library'}
+							{#if item.icon === 'library'}
 								<path d="M4 6h16M4 10h16M4 14h10M4 18h7" />
 							{:else if item.icon === 'player'}
 								<rect x="2" y="4" width="20" height="16" rx="2" />
