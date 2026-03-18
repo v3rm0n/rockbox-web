@@ -1,10 +1,12 @@
-# Rockbox Web Manager
+# Crate
 
-[![Build](https://github.com/v3rm0n/rockbox-web/actions/workflows/build.yml/badge.svg)](https://github.com/v3rm0n/rockbox-web/actions/workflows/build.yml)
+[![Build](https://github.com/v3rm0n/crate/actions/workflows/build.yml/badge.svg)](https://github.com/v3rm0n/crate/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docker Image](https://img.shields.io/badge/ghcr.io-v3rm0n%2Frockbox--web-blue)](https://github.com/v3rm0n/rockbox-web/pkgs/container/rockbox-web)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-v3rm0n%2Fcrate-blue)](https://github.com/v3rm0n/crate/pkgs/container/crate)
 
-A web application for managing music on [Rockbox](https://www.rockbox.org/) media players. Runs as a Docker container on your NAS (Unraid, Synology, etc.), mounts your music library and player storage, and lets you browse, search, and sync music through a clean web interface.
+A web application for managing music on portable audio players. Runs as a Docker container on your NAS (Unraid, Synology, etc.), mounts your music library and player storage, and lets you browse, search, and sync music through a clean web interface.
+
+Works with any DAP (digital audio player) that presents itself as a USB drive — Rockbox players, iPods, Sony Walkmans, FiiO, Shanling, and more.
 
 ## Features
 
@@ -22,7 +24,7 @@ A web application for managing music on [Rockbox](https://www.rockbox.org/) medi
 ```
 NAS                                Docker Container                    Player
 ┌────────────────┐                ┌────────────────────┐             ┌──────────┐
-│ Music Library  │──── /library ──│  Rockbox Web App   │── /player ──│  Rockbox │
+│ Music Library  │──── /library ──│       Crate        │── /player ──│   DAP    │
 │ (Lidarr, etc.) │   (read-only)  │  SvelteKit + SQLite│ (read-write)│  Device  │
 └────────────────┘                └────────────────────┘             └──────────┘
 ```
@@ -34,20 +36,20 @@ The app expects a well-structured music library (e.g. managed by [Lidarr](https:
 Pull the image from GitHub Container Registry:
 
 ```sh
-docker pull ghcr.io/v3rm0n/rockbox-web:latest
+docker pull ghcr.io/v3rm0n/crate:latest
 ```
 
 ### Docker Compose
 
 ```yaml
 services:
-  rockbox-web:
-    image: ghcr.io/v3rm0n/rockbox-web:latest
-    container_name: rockbox-web
+  crate:
+    image: ghcr.io/v3rm0n/crate:latest
+    container_name: crate
     ports:
       - "3000:3000"
     volumes:
-      - rockbox-data:/data
+      - crate-data:/data
       - /path/to/your/music/library:/library:ro
       - /path/to/your/player:/player
     environment:
@@ -55,10 +57,10 @@ services:
     restart: unless-stopped
 
 volumes:
-  rockbox-data:
+  crate-data:
 ```
 
-Replace `/path/to/your/music/library` with your NAS music share and `/path/to/your/player` with the mounted Rockbox player storage.
+Replace `/path/to/your/music/library` with your NAS music share and `/path/to/your/player` with the mounted player storage.
 
 ```sh
 docker compose up -d
@@ -70,13 +72,13 @@ Open `http://your-nas-ip:3000` and follow the setup wizard.
 
 ```sh
 docker run -d \
-  --name rockbox-web \
+  --name crate \
   -p 3000:3000 \
-  -v rockbox-data:/data \
+  -v crate-data:/data \
   -v /path/to/your/music/library:/library:ro \
   -v /path/to/your/player:/player \
   -e ORIGIN=http://localhost:3000 \
-  ghcr.io/v3rm0n/rockbox-web:latest
+  ghcr.io/v3rm0n/crate:latest
 ```
 
 ## Environment variables
@@ -112,11 +114,11 @@ npm run dev
 Requires local directories for testing:
 
 ```sh
-mkdir -p /tmp/rockbox-test/{library,player,data}
+mkdir -p /tmp/crate-test/{library,player,data}
 
-DATA_DIR=/tmp/rockbox-test/data \
-LIBRARY_PATH=/tmp/rockbox-test/library \
-PLAYER_PATH=/tmp/rockbox-test/player \
+DATA_DIR=/tmp/crate-test/data \
+LIBRARY_PATH=/tmp/crate-test/library \
+PLAYER_PATH=/tmp/crate-test/player \
 npm run dev
 ```
 

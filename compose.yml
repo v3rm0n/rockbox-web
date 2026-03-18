@@ -1,19 +1,16 @@
 services:
-  rockbox-web:
-    image: ghcr.io/v3rm0n/rockbox-web:latest
-    container_name: rockbox-web
+  crate:
+    build: .
+    container_name: crate
     ports:
       - "3000:3000"
     volumes:
-      # Persistent data (SQLite database, config)
-      - rockbox-data:/data
-      # Mount your NAS music library (read-only)
-      - /path/to/your/music/library:/library:ro
-      # Mount your Rockbox player storage (read-write)
-      - /path/to/your/player:/player
+      - crate-data:/data
+      - /Volumes/music:/library:ro
+      - /Volumes/IPOD:/player
     environment:
       - ORIGIN=http://localhost:3000
     restart: unless-stopped
 
 volumes:
-  rockbox-data:
+  crate-data:

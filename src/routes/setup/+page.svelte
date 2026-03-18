@@ -75,7 +75,7 @@
 	<div class="setup-container">
 		<div class="setup-header">
 			<span class="setup-icon">◆</span>
-			<h1>Rockbox Manager</h1>
+			<h1>Crate</h1>
 			<p class="setup-subtitle">First-time setup</p>
 		</div>
 
@@ -102,7 +102,7 @@
 			<div class="step-content" >
 				<h2>Welcome</h2>
 				<p>
-					This application manages music on your Rockbox media player.
+					This application manages music on your portable audio player.
 					It syncs tracks from your music library to the player, keeping
 					the folder structure consistent.
 				</p>

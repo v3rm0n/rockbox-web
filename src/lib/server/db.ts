@@ -11,7 +11,7 @@ function getDb(): Database.Database {
 	if (_db) return _db;
 
 	const dataDir = process.env.DATA_DIR || '/data';
-	const dbPath = path.join(dataDir, 'rockbox.db');
+	const dbPath = path.join(dataDir, 'crate.db');
 
 	log.info('Initializing database', { dataDir, dbPath });
 

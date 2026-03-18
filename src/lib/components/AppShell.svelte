@@ -19,7 +19,7 @@
 		<div class="sidebar-header">
 			<h1 class="logo">
 				<span class="logo-icon">◆</span>
-				Rockbox
+				Crate
 			</h1>
 		</div>
 

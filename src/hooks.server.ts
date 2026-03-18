@@ -7,7 +7,7 @@ import fs from 'node:fs';
 const log = createLogger('server');
 
 // Log startup configuration on first import
-log.info('Rockbox Web Manager starting', {
+log.info('Crate starting', {
 	nodeEnv: process.env.NODE_ENV,
 	libraryPath: getLibraryPath(),
 	playerPath: getPlayerPath(),
