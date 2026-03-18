@@ -1,11 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
+	interface CronStatus {
+		enabled: boolean;
+		intervalMinutes: number;
+		running: boolean;
+		lastRunAt: string | null;
+		lastRunStatus: string | null;
+		lastRunError: string | null;
+		nextRunAt: string | null;
+	}
+
 	interface Settings {
 		setupComplete: boolean;
 		managedDir: string | null;
 		libraryPath: string;
 		playerPath: string;
+		cron: CronStatus;
 	}
 
 	interface Job {
@@ -109,9 +120,64 @@
 			</div>
 		</section>
 
+		<!-- Auto-scan -->
+		<section class="section">
+			<h2 class="section-title">Auto-scan</h2>
+			<div class="settings-list">
+				<div class="setting-row">
+					<span class="setting-label">Status</span>
+					{#if settings.cron.enabled}
+						<span class="cron-status cron-enabled">
+							Every {settings.cron.intervalMinutes} min
+						</span>
+					{:else}
+						<span class="cron-status cron-disabled">Disabled</span>
+					{/if}
+				</div>
+				{#if settings.cron.enabled}
+					<div class="setting-row">
+						<span class="setting-label">Current</span>
+						{#if settings.cron.running}
+							<span class="cron-status cron-running">
+								<span class="spinner-small"></span>
+								Scanning...
+							</span>
+						{:else}
+							<span class="setting-value-text">Idle</span>
+						{/if}
+					</div>
+					{#if settings.cron.lastRunAt}
+						<div class="setting-row">
+							<span class="setting-label">Last run</span>
+							<span class="setting-value-text">
+								{formatDate(settings.cron.lastRunAt.replace('Z', '').replace('T', ' ').slice(0, 19))}
+								{#if settings.cron.lastRunStatus === 'success'}
+									<span class="cron-badge cron-success">OK</span>
+								{:else if settings.cron.lastRunStatus === 'failed'}
+									<span class="cron-badge cron-failed">Failed</span>
+								{/if}
+							</span>
+						</div>
+					{/if}
+					{#if settings.cron.lastRunError}
+						<div class="setting-row">
+							<span class="setting-label">Error</span>
+							<span class="setting-value-error">{settings.cron.lastRunError}</span>
+						</div>
+					{/if}
+				{:else}
+					<div class="setting-row">
+						<span class="setting-label-hint">
+							Set <code>SCAN_INTERVAL</code> env var (minutes) to enable
+						</span>
+					</div>
+				{/if}
+			</div>
+		</section>
+
 		<!-- Scanning -->
 		<section class="section">
-			<h2 class="section-title">Scanning</h2>
+			<h2 class="section-title">Manual scanning</h2>
 
 			{#if scanning}
 				<div class="scan-progress">
@@ -226,6 +292,63 @@
 		padding: 0.1875rem 0.5rem;
 		border-radius: 3px;
 		color: var(--color-text);
+	}
+
+	/* Auto-scan */
+	.cron-status {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.cron-enabled { color: var(--color-synced); }
+	.cron-disabled { color: var(--color-text-faint); }
+	.cron-running { color: var(--color-accent); }
+
+	.cron-badge {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		padding: 0.0625rem 0.375rem;
+		border-radius: 3px;
+		margin-left: 0.375rem;
+	}
+
+	.cron-success {
+		color: var(--color-synced);
+		background: rgba(76, 175, 106, 0.1);
+	}
+
+	.cron-failed {
+		color: var(--color-danger);
+		background: rgba(212, 80, 80, 0.1);
+	}
+
+	.setting-value-text {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		display: flex;
+		align-items: center;
+	}
+
+	.setting-value-error {
+		font-size: 0.8125rem;
+		color: var(--color-danger);
+	}
+
+	.setting-label-hint {
+		font-size: 0.8125rem;
+		color: var(--color-text-faint);
+	}
+
+	.setting-label-hint code {
+		background: var(--color-bg);
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+		font-size: 0.75rem;
 	}
 
 	/* Scan */

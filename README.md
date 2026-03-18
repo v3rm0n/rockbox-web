@@ -90,6 +90,7 @@ docker run -d \
 | `LIBRARY_PATH` | `/library` | Mount point for the music library |
 | `PLAYER_PATH` | `/player` | Mount point for the player storage |
 | `PORT` | `3000` | HTTP server port |
+| `SCAN_INTERVAL` | `0` (disabled) | Auto-scan interval in minutes (e.g. `60` = rescan every hour) |
 
 ## Supported audio formats
 

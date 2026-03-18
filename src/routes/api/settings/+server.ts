@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getSetting, setSetting, isSetupComplete, getManagedDir, getLibraryPath, getPlayerPath } from '$lib/server/settings.js';
+import { getCronStatus } from '$lib/server/cron.js';
 import type { RequestHandler } from './$types.js';
 
 export const GET: RequestHandler = async () => {
@@ -7,7 +8,8 @@ export const GET: RequestHandler = async () => {
 		setupComplete: isSetupComplete(),
 		managedDir: getManagedDir() || null,
 		libraryPath: getLibraryPath(),
-		playerPath: getPlayerPath()
+		playerPath: getPlayerPath(),
+		cron: getCronStatus()
 	});
 };
 

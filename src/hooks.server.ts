@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { isSetupComplete, getLibraryPath, getPlayerPath } from '$lib/server/settings.js';
 import { createLogger } from '$lib/server/logger.js';
+import { startCron } from '$lib/server/cron.js';
 import type { Handle } from '@sveltejs/kit';
 import fs from 'node:fs';
 
@@ -44,6 +45,9 @@ if (!fs.existsSync(playerPath)) {
 		log.error('Cannot read player directory', { playerPath, error: err instanceof Error ? err.message : String(err) });
 	}
 }
+
+// Start periodic scan cron if configured
+startCron();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Redirect to setup if not completed (except for setup routes and API)
