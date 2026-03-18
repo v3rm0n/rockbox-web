@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { addToast } from '$lib/stores/toast.svelte.js';
 
 	interface PlayerTrack {
 		id: number;
@@ -75,13 +76,27 @@
 
 	async function removeSelected() {
 		if (selectedIds.size === 0) return;
+		const ids = [...selectedIds];
 		removing = true;
 
-		await fetch('/api/sync/remove', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ trackIds: [...selectedIds] })
-		});
+		try {
+			const res = await fetch('/api/sync/remove', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ trackIds: ids })
+			});
+			const result = await res.json();
+
+			if (result.failed > 0) {
+				const detail = result.errors?.[0] || 'Unknown error';
+				addToast('error', `Failed to remove ${result.failed} of ${ids.length} tracks`, detail, 10000);
+			}
+			if (result.removed > 0) {
+				addToast('success', `Removed ${result.removed} track${result.removed > 1 ? 's' : ''} from player`);
+			}
+		} catch {
+			addToast('error', 'Remove request failed', 'Could not connect to the server');
+		}
 
 		selectedIds = new Set();
 		removing = false;

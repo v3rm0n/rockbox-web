@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { addToast } from '$lib/stores/toast.svelte.js';
 
 	interface Track {
 		id: number;
@@ -79,11 +80,24 @@
 		if (ids.length === 0) return;
 		syncing = true;
 
-		await fetch('/api/sync/copy', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ trackIds: ids })
-		});
+		try {
+			const res = await fetch('/api/sync/copy', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ trackIds: ids })
+			});
+			const result = await res.json();
+
+			if (result.failed > 0) {
+				const detail = result.errors?.[0] || 'Unknown error';
+				addToast('error', `Failed to sync ${result.failed} of ${ids.length} tracks`, detail, 10000);
+			}
+			if (result.copied > 0) {
+				addToast('success', `Synced ${result.copied} track${result.copied > 1 ? 's' : ''} to player`);
+			}
+		} catch {
+			addToast('error', 'Sync request failed', 'Could not connect to the server');
+		}
 
 		selectedIds = new Set();
 		syncing = false;
@@ -95,11 +109,24 @@
 		if (ids.length === 0) return;
 		syncing = true;
 
-		await fetch('/api/sync/copy', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ trackIds: ids })
-		});
+		try {
+			const res = await fetch('/api/sync/copy', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ trackIds: ids })
+			});
+			const result = await res.json();
+
+			if (result.failed > 0) {
+				const detail = result.errors?.[0] || 'Unknown error';
+				addToast('error', `Failed to sync ${result.failed} of ${ids.length} tracks`, detail, 10000);
+			}
+			if (result.copied > 0) {
+				addToast('success', `Synced ${result.copied} track${result.copied > 1 ? 's' : ''} to player`);
+			}
+		} catch {
+			addToast('error', 'Sync request failed', 'Could not connect to the server');
+		}
 
 		syncing = false;
 		await loadTracks();
