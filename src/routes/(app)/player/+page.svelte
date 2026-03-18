@@ -20,12 +20,16 @@
 	}
 
 	let tracks = $state<PlayerTrack[]>([]);
+	let totalTracks = $state(0);
 	let storage = $state<Storage | null>(null);
 	let orphans = $state<{ id: number; relative_path: string; file_size: number }[]>([]);
 	let loading = $state(true);
 	let searchQuery = $state('');
 	let selectedIds = $state<Set<number>>(new Set());
 	let removing = $state(false);
+	let removingAll = $state(false);
+	let showDeleteAllConfirm = $state(false);
+	let deleteConfirmText = $state('');
 	let currentPage = $state(1);
 	let totalPages = $state(1);
 
@@ -61,6 +65,7 @@
 		const tracksData = await tracksRes.json();
 		tracks = tracksData.tracks;
 		totalPages = tracksData.pagination.pages;
+		totalTracks = tracksData.pagination.total;
 		storage = await storageRes.json();
 		const orphansData = await orphansRes.json();
 		orphans = orphansData.orphans;
@@ -103,6 +108,34 @@
 		await loadData();
 	}
 
+	async function removeAll() {
+		removingAll = true;
+
+		try {
+			const res = await fetch('/api/sync/remove-all', {
+				method: 'POST'
+			});
+			const result = await res.json();
+
+			if (result.failed > 0) {
+				const detail = result.errors?.[0] || 'Unknown error';
+				addToast('error', `Failed to remove ${result.failed} tracks`, detail, 10000);
+			}
+			if (result.removed > 0) {
+				addToast('success', `Removed all ${result.removed} tracks from player`);
+			}
+		} catch {
+			addToast('error', 'Remove all request failed', 'Could not connect to the server');
+		}
+
+		removingAll = false;
+		showDeleteAllConfirm = false;
+		deleteConfirmText = '';
+		await loadData();
+	}
+
+	let deleteConfirmValid = $derived(deleteConfirmText === 'DELETE ALL');
+
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	function onSearchInput() {
 		clearTimeout(searchTimeout);
@@ -126,7 +159,14 @@
 		<!-- Storage overview -->
 		{#if storage}
 			<section class="section">
-				<h2 class="section-title">Storage</h2>
+				<div class="section-header">
+					<h2 class="section-title">Storage</h2>
+					{#if totalTracks > 0}
+						<button class="btn-delete-all" onclick={() => { showDeleteAllConfirm = true; deleteConfirmText = ''; }}>
+							Delete all files
+						</button>
+					{/if}
+				</div>
 				<div class="storage-card">
 					<div class="storage-bar">
 						{#if storage}
@@ -226,6 +266,47 @@
 		</section>
 	{/if}
 </div>
+
+<!-- Delete all confirmation modal -->
+{#if showDeleteAllConfirm}
+	<div class="modal-backdrop" onclick={() => { showDeleteAllConfirm = false; deleteConfirmText = ''; }}>
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<h3 class="modal-title">Delete all files from player</h3>
+			<p class="modal-warning">
+				This will permanently delete <strong>{totalTracks} tracks</strong>
+				{#if storage}({formatBytes(storage.storage.managedSize)}){/if}
+				from the player's managed directory. This cannot be undone.
+			</p>
+			<p class="modal-instruction">
+				Type <code>DELETE ALL</code> to confirm:
+			</p>
+			<input
+				type="text"
+				class="modal-input"
+				placeholder="DELETE ALL"
+				bind:value={deleteConfirmText}
+				autocomplete="off"
+				spellcheck="false"
+			/>
+			<div class="modal-actions">
+				<button
+					class="btn-cancel"
+					onclick={() => { showDeleteAllConfirm = false; deleteConfirmText = ''; }}
+					disabled={removingAll}
+				>
+					Cancel
+				</button>
+				<button
+					class="btn-confirm-delete"
+					onclick={removeAll}
+					disabled={!deleteConfirmValid || removingAll}
+				>
+					{removingAll ? 'Deleting...' : 'Delete all files'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.player-page { max-width: 900px; }
@@ -497,4 +578,149 @@
 	}
 
 	@keyframes spin { to { transform: rotate(360deg); } }
+
+	/* Section header with action */
+	.section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.75rem;
+	}
+
+	.section-header .section-title {
+		margin: 0;
+	}
+
+	.btn-delete-all {
+		padding: 0.25rem 0.625rem;
+		border-radius: 4px;
+		border: 1px solid var(--color-danger);
+		background: transparent;
+		color: var(--color-danger);
+		font-size: 0.75rem;
+		cursor: pointer;
+		font-family: inherit;
+		transition: background 0.15s;
+	}
+
+	.btn-delete-all:hover {
+		background: rgba(212, 80, 80, 0.1);
+	}
+
+	/* Modal */
+	.modal-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 9999;
+		padding: 1rem;
+	}
+
+	.modal {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: 12px;
+		padding: 1.75rem;
+		max-width: 440px;
+		width: 100%;
+		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+	}
+
+	.modal-title {
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 400;
+		color: var(--color-danger);
+		margin: 0 0 1rem;
+	}
+
+	.modal-warning {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+		margin: 0 0 1rem;
+	}
+
+	.modal-warning strong {
+		color: var(--color-text);
+	}
+
+	.modal-instruction {
+		font-size: 0.8125rem;
+		color: var(--color-text-faint);
+		margin: 0 0 0.5rem;
+	}
+
+	.modal-instruction code {
+		color: var(--color-danger);
+		font-weight: 600;
+		background: rgba(212, 80, 80, 0.1);
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+	}
+
+	.modal-input {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 6px;
+		color: var(--color-text);
+		font-size: 0.875rem;
+		font-family: inherit;
+		outline: none;
+		box-sizing: border-box;
+		margin-bottom: 1.25rem;
+	}
+
+	.modal-input:focus {
+		border-color: var(--color-danger);
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 0.625rem;
+		justify-content: flex-end;
+	}
+
+	.btn-cancel {
+		padding: 0.4375rem 1rem;
+		border-radius: 6px;
+		border: 1px solid var(--color-border);
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 0.8125rem;
+		cursor: pointer;
+		font-family: inherit;
+	}
+
+	.btn-cancel:hover:not(:disabled) {
+		border-color: var(--color-text-faint);
+		color: var(--color-text);
+	}
+
+	.btn-confirm-delete {
+		padding: 0.4375rem 1rem;
+		border-radius: 6px;
+		border: none;
+		background: var(--color-danger);
+		color: white;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		cursor: pointer;
+		font-family: inherit;
+		transition: background 0.15s;
+	}
+
+	.btn-confirm-delete:hover:not(:disabled) {
+		background: var(--color-danger-hover);
+	}
+
+	.btn-confirm-delete:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
 </style>
