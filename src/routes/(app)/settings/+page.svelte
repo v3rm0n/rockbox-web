@@ -301,6 +301,8 @@
 	}
 
 	onMount(() => {
+		const urlTab = new URLSearchParams(window.location.search).get('tab');
+		if (urlTab === 'players') activeTab = 'players';
 		loadData();
 		loadPlayers();
 	});

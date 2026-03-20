@@ -24,7 +24,6 @@
 		{ view: 'artists', label: 'Artists' },
 		{ view: 'albums', label: 'Albums' },
 		{ view: 'tracks', label: 'Tracks' },
-		{ view: 'player', label: 'Player' },
 	];
 
 	let playerStorage = $state<{ total: number; used: number; free: number } | null>(null);
@@ -96,14 +95,14 @@
 					<a
 						href="/library"
 						class="nav-link"
-						class:active={isActive('/library')}
+						class:active={isActive('/library') && (page.url.searchParams.get('view') || 'artists') !== 'player'}
 					>
 						<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
 							<path d="M4 6h16M4 10h16M4 14h10M4 18h7" />
 						</svg>
 						<span>Music</span>
 					</a>
-					{#if isActive('/library')}
+					{#if isActive('/library') && (page.url.searchParams.get('view') || 'artists') !== 'player'}
 						<ul class="sub-nav">
 							{#each libraryViews as item}
 								<li>
@@ -118,6 +117,20 @@
 							{/each}
 						</ul>
 					{/if}
+				</li>
+				<li>
+					<a
+						href="/library?view=player"
+						class="nav-link"
+						class:active={isActive('/library') && page.url.searchParams.get('view') === 'player'}
+					>
+						<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="5" y="3" width="14" height="18" rx="3" />
+							<circle cx="12" cy="15" r="3" />
+							<path d="M9 7h6" />
+						</svg>
+						<span>Player</span>
+					</a>
 				</li>
 			</ul>
 		</div>
@@ -165,6 +178,7 @@
 		top: 0;
 		height: 100dvh;
 		overflow-y: auto;
+		z-index: 10;
 	}
 
 	.sidebar-top {
