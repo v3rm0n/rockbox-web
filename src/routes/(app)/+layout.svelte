@@ -1,6 +1,16 @@
 <script lang="ts">
 	import AppShell from '$lib/components/AppShell.svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, onNavigate } from '$app/navigation';
+
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 
 	let { children, data } = $props();
 

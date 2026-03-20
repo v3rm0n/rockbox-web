@@ -3,6 +3,7 @@ export interface Toast {
 	type: 'success' | 'error' | 'warning';
 	message: string;
 	details?: string;
+	duration: number;
 }
 
 let nextId = 0;
@@ -12,9 +13,9 @@ export function getToasts(): Toast[] {
 	return toasts;
 }
 
-export function addToast(type: Toast['type'], message: string, details?: string, duration = 6000) {
+export function addToast(type: Toast['type'], message: string, details?: string, duration = 4000) {
 	const id = nextId++;
-	toasts = [...toasts, { id, type, message, details }];
+	toasts = [...toasts, { id, type, message, details, duration }];
 
 	if (duration > 0) {
 		setTimeout(() => dismissToast(id), duration);

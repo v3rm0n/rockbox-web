@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { slide } from 'svelte/transition';
 	import { addToast } from '$lib/stores/toast.svelte.js';
 
 	// --- Shared types ---
@@ -144,6 +144,15 @@
 		return 'Not synced';
 	}
 
+	function albumGradient(name: string): string {
+		let hash = 0;
+		for (let i = 0; i < name.length; i++) {
+			hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+		}
+		const hue = Math.abs(hash) % 360;
+		return `linear-gradient(145deg, hsl(${hue}, 38%, 22%), hsl(${(hue + 40) % 360}, 42%, 15%))`;
+	}
+
 	// --- Data loading ---
 
 	async function loadStats() {
@@ -229,20 +238,10 @@
 	}
 
 	function setView(mode: ViewMode) {
-		viewMode = mode;
-		searchQuery = '';
-		syncFilter = 'all';
-		selectedIds = new Set();
-		playerSelectedIds = new Set();
-		loading = true;
 		const url = new URL(page.url);
 		url.searchParams.set('view', mode);
-		if (mode !== 'albums') {
-			url.searchParams.delete('artist');
-			artistFilter = '';
-		}
+		if (mode !== 'albums') url.searchParams.delete('artist');
 		goto(url.toString(), { replaceState: true, noScroll: true });
-		loadCurrentView();
 	}
 
 	function setFilter(filter: string) {
@@ -298,16 +297,10 @@
 	}
 
 	function showArtistAlbums(artistName: string) {
-		artistFilter = artistName;
-		viewMode = 'albums';
-		albumPage = 1;
-		syncFilter = 'all';
-		searchQuery = '';
 		const url = new URL(page.url);
 		url.searchParams.set('view', 'albums');
 		url.searchParams.set('artist', artistName);
 		goto(url.toString(), { replaceState: true, noScroll: true });
-		loadAlbums();
 	}
 
 	// --- Albums actions ---
@@ -451,15 +444,28 @@
 
 	let deleteConfirmValid = $derived(deleteConfirmText === 'DELETE ALL');
 
-	// --- Init ---
+	// --- Init: react to URL changes (initial load + sidebar navigation) ---
 
-	onMount(() => {
-		const urlView = page.url.searchParams.get('view');
-		if (urlView === 'albums' || urlView === 'tracks' || urlView === 'player') {
-			viewMode = urlView;
-		}
-		const urlArtist = page.url.searchParams.get('artist');
-		if (urlArtist) artistFilter = urlArtist;
+	let _prevUrlKey = '';
+
+	$effect(() => {
+		const urlView = (page.url.searchParams.get('view') || 'artists') as ViewMode;
+		const urlArtist = page.url.searchParams.get('artist') || '';
+		const urlKey = `${urlView}:${urlArtist}`;
+
+		if (urlKey === _prevUrlKey) return;
+		_prevUrlKey = urlKey;
+
+		viewMode = urlView;
+		artistFilter = urlArtist;
+		searchQuery = '';
+		syncFilter = 'all';
+		selectedIds = new Set();
+		playerSelectedIds = new Set();
+		albumPage = 1;
+		trackPage = 1;
+		playerPage = 1;
+		loading = true;
 
 		loadStats();
 		loadCurrentView();
@@ -469,19 +475,14 @@
 <div class="music-page">
 	<header class="page-header">
 		<div class="header-row">
-			<h1>Music</h1>
+			<h1>{viewMode === 'artists' ? 'Artists' : viewMode === 'albums' ? 'Albums' : viewMode === 'tracks' ? 'Tracks' : 'Player'}</h1>
 			{#if stats}
 				<span class="header-stats">
-					{stats.total_tracks.toLocaleString()} tracks
-					<span class="sep">·</span>
-					{stats.total_albums.toLocaleString()} albums
-					<span class="sep">·</span>
-					{stats.total_artists.toLocaleString()} artists
-					{#if stats.synced_tracks > 0}
-						<span class="sep">·</span>
-						<span class="synced-stat">{stats.synced_tracks.toLocaleString()} on player</span>
-					{/if}
-					{#if playerStorage}
+					{#if viewMode === 'artists'}{stats.total_artists.toLocaleString()} artists
+					{:else if viewMode === 'albums'}{stats.total_albums.toLocaleString()} albums
+					{:else if viewMode === 'tracks'}{stats.total_tracks.toLocaleString()} tracks
+					{:else}{stats.synced_tracks.toLocaleString()} on player{/if}
+					{#if playerStorage && viewMode !== 'player'}
 						<span class="sep">·</span>
 						{formatBytes(playerStorage.free)} free
 					{/if}
@@ -489,23 +490,6 @@
 			{/if}
 		</div>
 	</header>
-
-	<!-- View tabs -->
-	<div class="view-tabs">
-		<div class="tabs-row">
-			<div class="tabs-group">
-				<button class="view-tab" class:active={viewMode === 'artists'} onclick={() => setView('artists')}>Artists</button>
-				<button class="view-tab" class:active={viewMode === 'albums'} onclick={() => setView('albums')}>Albums</button>
-				<button class="view-tab" class:active={viewMode === 'tracks'} onclick={() => setView('tracks')}>Tracks</button>
-				<button class="view-tab" class:active={viewMode === 'player'} onclick={() => setView('player')}>
-					Player
-					{#if orphans.length > 0 && viewMode !== 'player'}
-						<span class="tab-badge">{orphans.length}</span>
-					{/if}
-				</button>
-			</div>
-		</div>
-	</div>
 
 	<!-- Controls bar: search + sync filter -->
 	<div class="controls">
@@ -545,18 +529,6 @@
 					</div>
 				{/if}
 
-				{#if viewMode === 'tracks' && selectedIds.size > 0}
-					<div class="selection-actions">
-						<span class="selection-info">{selectedIds.size} selected ({formatBytes(selectedSize)})</span>
-						{#if storageWarning}
-							<span class="storage-warning">Not enough space</span>
-						{/if}
-						<button class="btn-action" onclick={syncSelected} disabled={syncing || storageWarning}>
-							{syncing ? 'Syncing...' : `Sync ${selectedIds.size}`}
-						</button>
-						<button class="btn-ghost" onclick={() => { selectedIds = new Set(); }}>Clear</button>
-					</div>
-				{/if}
 			</div>
 		{/if}
 	</div>
@@ -568,7 +540,17 @@
 	<!-- ===== ARTISTS VIEW ===== -->
 	{:else if viewMode === 'artists'}
 		{#if artists.length === 0}
-			<div class="empty-state"><p>No artists found</p></div>
+			<div class="empty-state">
+				<svg class="empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="16" cy="18" r="6"/><circle cx="32" cy="18" r="6"/>
+					<path d="M4 42c0-6.627 5.373-12 12-12h16c6.627 0 12 5.373 12 12"/>
+				</svg>
+				<p class="empty-title">{searchQuery || syncFilter !== 'all' ? 'No artists match your filters' : 'No artists yet'}</p>
+				<p class="empty-sub">{searchQuery || syncFilter !== 'all' ? 'Try adjusting your search or filter' : 'Scan your library to find music'}</p>
+				{#if searchQuery || syncFilter !== 'all'}
+					<button class="btn-text" onclick={() => { searchQuery = ''; syncFilter = 'all'; loadArtists(); }}>Clear filters</button>
+				{/if}
+			</div>
 		{:else}
 			<div class="list-container">
 				{#each artists as artist}
@@ -604,7 +586,17 @@
 	<!-- ===== ALBUMS VIEW ===== -->
 	{:else if viewMode === 'albums'}
 		{#if albums.length === 0}
-			<div class="empty-state"><p>No albums found</p></div>
+			<div class="empty-state">
+				<svg class="empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="24" cy="24" r="18"/><circle cx="24" cy="24" r="6"/>
+					<path d="M24 6v6M24 36v6M6 24h6M36 24h6"/>
+				</svg>
+				<p class="empty-title">{searchQuery || syncFilter !== 'all' || artistFilter ? 'No albums match your filters' : 'No albums yet'}</p>
+				<p class="empty-sub">{searchQuery || syncFilter !== 'all' || artistFilter ? 'Try adjusting your search or filter' : 'Scan your library to find albums'}</p>
+				{#if searchQuery || syncFilter !== 'all' || artistFilter}
+					<button class="btn-text" onclick={() => { searchQuery = ''; syncFilter = 'all'; artistFilter = ''; albumPage = 1; loadAlbums(); }}>Clear filters</button>
+				{/if}
+			</div>
 		{:else}
 			<div class="list-container">
 				{#each albums as album}
@@ -613,6 +605,9 @@
 					<div class="list-row album-row">
 						<a class="row-main" href="/library/album/{albumId}">
 							<span class="sync-dot {status}"></span>
+							<div class="album-art-sm" style="background: {albumGradient(album.album)}">
+								<span>{album.album.charAt(0)}</span>
+							</div>
 							<div class="album-info">
 								<span class="row-name">{album.album}</span>
 								<span class="row-sub">{album.artist}{album.year ? ` · ${album.year}` : ''}</span>
@@ -651,7 +646,12 @@
 	{:else if viewMode === 'tracks'}
 		{#if tracks.length === 0}
 			<div class="empty-state">
-				<p>No songs found</p>
+				<svg class="empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M20 8h22v28a6 6 0 01-6 6H12a6 6 0 01-6-6V14l8-6z"/>
+					<path d="M20 8v6H6M28 22H18M28 30H18"/>
+				</svg>
+				<p class="empty-title">{searchQuery || syncFilter !== 'all' ? 'No tracks match your filters' : 'No tracks yet'}</p>
+				<p class="empty-sub">{searchQuery || syncFilter !== 'all' ? 'Try adjusting your search or filter' : 'Scan your library to find tracks'}</p>
 				{#if searchQuery || syncFilter !== 'all'}
 					<button class="btn-text" onclick={() => { searchQuery = ''; syncFilter = 'all'; loadTracks(); }}>Clear filters</button>
 				{/if}
@@ -754,7 +754,14 @@
 			</div>
 
 			{#if playerTracks.length === 0}
-				<div class="empty-state"><p>No tracks on player</p></div>
+				<div class="empty-state">
+					<svg class="empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="8" y="6" width="32" height="36" rx="4"/>
+						<circle cx="24" cy="30" r="6"/><path d="M20 14h8M24 6v4"/>
+					</svg>
+					<p class="empty-title">No tracks on player</p>
+					<p class="empty-sub">Sync music from the Artists or Albums view</p>
+				</div>
 			{:else}
 				<div class="list-container">
 					{#each playerTracks as track}
@@ -793,6 +800,31 @@
 	{/if}
 </div>
 
+<!-- Floating selection toolbar -->
+{#if viewMode === 'tracks' && selectedIds.size > 0}
+	<div class="floating-toolbar" transition:slide={{ duration: 180, axis: 'y' }}>
+		<div class="toolbar-info">
+			<strong class="toolbar-count">{selectedIds.size}</strong>
+			<span class="toolbar-label">{selectedIds.size === 1 ? 'track' : 'tracks'} selected</span>
+			<span class="toolbar-size">{formatBytes(selectedSize)}</span>
+			{#if storageWarning}
+				<span class="toolbar-warning">
+					<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;display:inline;vertical-align:-1px">
+						<path d="M8 2L14 13H2L8 2z"/><path d="M8 6v4"/><circle cx="8" cy="11.5" r="0.5" fill="currentColor"/>
+					</svg>
+					Not enough space
+				</span>
+			{/if}
+		</div>
+		<div class="toolbar-actions">
+			<button class="btn-ghost toolbar-clear" onclick={() => { selectedIds = new Set(); }}>Clear</button>
+			<button class="btn-action" onclick={syncSelected} disabled={syncing || storageWarning}>
+				{syncing ? 'Syncing...' : `Sync ${selectedIds.size} track${selectedIds.size !== 1 ? 's' : ''}`}
+			</button>
+		</div>
+	</div>
+{/if}
+
 <!-- Delete all confirmation modal -->
 {#if showDeleteAllConfirm}
 	<div class="modal-backdrop" role="dialog" onclick={() => { showDeleteAllConfirm = false; deleteConfirmText = ''; }}>
@@ -821,25 +853,6 @@
 	.header-stats { font-size: 0.8125rem; color: var(--color-text-faint); }
 	.header-stats .sep { color: var(--color-border); margin: 0 0.125rem; }
 	.synced-stat { color: var(--color-synced); }
-
-	/* View tabs */
-	.view-tabs { margin-bottom: 1rem; }
-	.tabs-row { display: flex; align-items: center; justify-content: space-between; }
-	.tabs-group { display: flex; gap: 2px; background: var(--color-surface); border-radius: 6px; padding: 3px; }
-	.view-tab {
-		display: flex; align-items: center; gap: 0.375rem;
-		padding: 0.4375rem 0.875rem; border-radius: 4px; border: none;
-		background: transparent; color: var(--color-text-muted);
-		font-size: 0.8125rem; font-weight: 500; cursor: pointer;
-		transition: all 0.15s; font-family: inherit;
-	}
-	.view-tab:hover { color: var(--color-text); }
-	.view-tab.active { background: var(--color-surface-raised); color: var(--color-text); }
-	.tab-badge {
-		font-size: 0.625rem; padding: 0.0625rem 0.3125rem;
-		background: var(--color-accent); color: #1a1815;
-		border-radius: 8px; font-weight: 600;
-	}
 
 	/* Controls */
 	.controls { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1rem; }
@@ -982,10 +995,11 @@
 	.track-table tbody tr.synced:hover { opacity: 0.8; }
 	.track-table td { padding: 0.4375rem 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 	.track-table td.col-check, .track-table td.col-status { padding-left: 0.625rem; padding-right: 0; overflow: visible; }
-	.track-table td.col-title { color: var(--color-text); }
-	.track-table td.col-artist, .track-table td.col-album { color: var(--color-text-muted); }
-	.track-table td.col-duration { text-align: right; color: var(--color-text-muted); }
-	.track-table td.col-quality { text-align: right; color: var(--color-text-faint); font-size: 0.75rem; }
+	.track-table td.col-title { color: var(--color-text); font-weight: 500; }
+	.track-table td.col-artist { color: var(--color-text-muted); font-size: 0.8125rem; }
+	.track-table td.col-album { color: var(--color-text-faint); font-size: 0.8125rem; }
+	.track-table td.col-duration { text-align: right; color: var(--color-text-faint); font-size: 0.75rem; }
+	.track-table td.col-quality { text-align: right; color: var(--color-text-faint); font-size: 0.6875rem; letter-spacing: 0.02em; }
 
 	/* Checkboxes */
 	.header-check, .row-check, .track-select {
@@ -1036,9 +1050,8 @@
 	.btn-confirm-delete { padding: 0.4375rem 1rem; border-radius: 6px; border: none; background: var(--color-danger); color: white; font-size: 0.8125rem; font-weight: 500; cursor: pointer; font-family: inherit; }
 	.btn-confirm-delete:disabled { opacity: 0.4; cursor: not-allowed; }
 
-	/* Shared */
-	.loading-state, .empty-state { text-align: center; padding: 4rem 0; color: var(--color-text-muted); }
-	.empty-state p { margin: 0 0 0.5rem; }
+	/* Loading */
+	.loading-state { text-align: center; padding: 4rem 0; color: var(--color-text-muted); }
 	.spinner { width: 24px; height: 24px; border: 2px solid var(--color-border); border-top-color: var(--color-accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; }
 	@keyframes spin { to { transform: rotate(360deg); } }
 
@@ -1057,4 +1070,62 @@
 		.col-artist { display: none; }
 		.col-title { width: auto; }
 	}
+
+	/* Empty states */
+	.empty-state { text-align: center; padding: 4rem 2rem; color: var(--color-text-muted); }
+	.empty-icon {
+		width: 48px; height: 48px; margin: 0 auto 1.25rem;
+		color: var(--color-text-faint); opacity: 0.6;
+	}
+	.empty-title { font-size: 0.9375rem; font-weight: 500; color: var(--color-text-muted); margin: 0 0 0.375rem; }
+	.empty-sub { font-size: 0.8125rem; color: var(--color-text-faint); margin: 0 0 1rem; }
+
+	/* Album art thumbnail in list */
+	.album-art-sm {
+		width: 36px; height: 36px; border-radius: 4px;
+		display: flex; align-items: center; justify-content: center;
+		flex-shrink: 0;
+	}
+	.album-art-sm span {
+		font-family: var(--font-display); font-size: 1rem;
+		color: rgba(255, 255, 255, 0.6); font-weight: 400;
+		text-transform: uppercase;
+	}
+
+	/* Floating selection toolbar */
+	.floating-toolbar {
+		position: fixed;
+		bottom: 1.75rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: 10px;
+		padding: 0.625rem 0.875rem;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255,255,255,0.04) inset;
+		z-index: 200;
+		min-width: 320px;
+		backdrop-filter: blur(8px);
+	}
+
+	.toolbar-info {
+		display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0;
+	}
+	.toolbar-count { font-size: 0.9375rem; color: var(--color-text); }
+	.toolbar-label { font-size: 0.8125rem; color: var(--color-text-muted); }
+	.toolbar-size { font-size: 0.75rem; color: var(--color-text-faint); }
+	.toolbar-warning {
+		font-size: 0.75rem; color: var(--color-danger);
+		display: flex; align-items: center; gap: 0.25rem;
+	}
+	.toolbar-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+	.toolbar-clear {
+		padding: 0.375rem 0.625rem; border-radius: 5px;
+		border: 1px solid var(--color-border); background: transparent;
+		color: var(--color-text-muted); font-size: 0.8125rem; cursor: pointer; font-family: inherit;
+	}
+	.toolbar-clear:hover { border-color: var(--color-text-faint); color: var(--color-text); }
 </style>

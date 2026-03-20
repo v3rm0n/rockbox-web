@@ -156,6 +156,15 @@
 		await loadTracks();
 	}
 
+	function albumGradient(name: string): string {
+		let hash = 0;
+		for (let i = 0; i < name.length; i++) {
+			hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+		}
+		const hue = Math.abs(hash) % 360;
+		return `linear-gradient(145deg, hsl(${hue}, 38%, 22%), hsl(${(hue + 40) % 360}, 42%, 15%))`;
+	}
+
 	let syncedCount = $derived(tracks.filter(t => t.is_synced).length);
 	let totalSize = $derived(tracks.reduce((s, t) => s + (t.file_size || 0), 0));
 	let totalDuration = $derived(tracks.reduce((s, t) => s + (t.duration || 0), 0));
@@ -172,7 +181,7 @@
 		</div>
 	{:else}
 		<header class="album-header">
-			<div class="album-art-large">
+			<div class="album-art-large" style="background: {albumGradient(albumName || '?')}">
 				<span>{albumName?.charAt(0) || '?'}</span>
 			</div>
 			<div class="album-details">
@@ -294,18 +303,20 @@
 	.album-art-large {
 		width: 120px;
 		height: 120px;
-		border-radius: 6px;
-		background: var(--color-surface);
+		border-radius: 8px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 	}
 
 	.album-art-large span {
 		font-family: var(--font-display);
 		font-size: 2.5rem;
-		color: var(--color-text-faint);
+		color: rgba(255, 255, 255, 0.6);
+		font-weight: 400;
+		text-transform: uppercase;
 	}
 
 	.album-details {
