@@ -113,7 +113,9 @@
 
 		try {
 			const res = await fetch('/api/sync/remove-all', {
-				method: 'POST'
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({})
 			});
 			const result = await res.json();
 
