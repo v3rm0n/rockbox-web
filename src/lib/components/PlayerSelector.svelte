@@ -62,7 +62,7 @@
 		{:else}
 			<span class="no-player">No player selected</span>
 		{/if}
-		<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+		<svg class="chevron" class:open={isOpen} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 			<path d="M6 9l6 6 6-6" />
 		</svg>
 	</button>
@@ -72,7 +72,7 @@
 			<div class="dropdown-header">
 				<span class="header-label">Select Player</span>
 				<button type="button" class="manage-link" onclick={onManage}>
-					Manage players
+					Manage
 				</button>
 			</div>
 
@@ -96,7 +96,7 @@
 								</span>
 							</div>
 							{#if player.id === activePlayer?.id}
-								<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
 									<path d="M5 13l4 4L19 7" />
 								</svg>
 							{/if}
@@ -130,7 +130,7 @@
 		padding: 0.5rem 0.75rem;
 		background: var(--color-bg);
 		border: 1px solid var(--color-border);
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		cursor: pointer;
 		transition: all 0.15s ease;
 		width: 100%;
@@ -143,7 +143,7 @@
 
 	.selector-button.active {
 		border-color: var(--color-accent-muted);
-		box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.15);
+		box-shadow: 0 0 0 2px rgba(196, 154, 60, 0.12);
 	}
 
 	.player-info {
@@ -181,6 +181,11 @@
 		height: 14px;
 		color: var(--color-text-faint);
 		flex-shrink: 0;
+		transition: transform 0.15s;
+	}
+
+	.chevron.open {
+		transform: rotate(180deg);
 	}
 
 	.dropdown {
@@ -191,9 +196,10 @@
 		min-width: 240px;
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border);
-		border-radius: 8px;
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
 		z-index: 100;
+		overflow: hidden;
 	}
 
 	.dropdown-header {
@@ -205,11 +211,11 @@
 	}
 
 	.header-label {
-		font-size: 0.6875rem;
+		font-size: 0.625rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		color: var(--color-text-faint);
-		letter-spacing: 0.05em;
+		letter-spacing: 0.08em;
 	}
 
 	.manage-link {
@@ -220,10 +226,11 @@
 		cursor: pointer;
 		padding: 0;
 		font-family: inherit;
+		transition: opacity 0.15s;
 	}
 
 	.manage-link:hover {
-		text-decoration: underline;
+		opacity: 0.8;
 	}
 
 	.players-list {
@@ -252,16 +259,16 @@
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		transition: background-color 0.15s ease;
+		transition: background-color 0.1s ease;
 		font-family: inherit;
 	}
 
 	.player-option:hover {
-		background: var(--color-surface);
+		background: var(--color-surface-hover);
 	}
 
 	.player-option.active {
-		background: rgba(212, 168, 67, 0.08);
+		background: var(--color-accent-soft);
 	}
 
 	.option-info {
@@ -304,19 +311,19 @@
 		justify-content: center;
 		gap: 0.375rem;
 		width: 100%;
-		padding: 0.375rem;
+		padding: 0.4375rem;
 		font-size: 0.8125rem;
 		color: var(--color-accent);
 		background: transparent;
 		border: 1px dashed var(--color-accent-muted);
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
 		cursor: pointer;
 		transition: all 0.15s ease;
 		font-family: inherit;
 	}
 
 	.add-button:hover {
-		background: rgba(212, 168, 67, 0.08);
+		background: var(--color-accent-soft);
 		border-color: var(--color-accent);
 	}
 

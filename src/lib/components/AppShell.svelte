@@ -66,10 +66,14 @@
 	<nav class="sidebar">
 		<div class="sidebar-top">
 			<div class="sidebar-header">
-				<h1 class="logo">
-					<span class="logo-icon">◆</span>
-					Crate
-				</h1>
+				<a href="/library" class="logo">
+					<svg class="logo-mark" viewBox="0 0 24 24" fill="none">
+						<rect x="2" y="2" width="20" height="20" rx="3" fill="var(--color-accent)" opacity="0.15"/>
+						<rect x="5" y="5" width="14" height="14" rx="2" fill="var(--color-accent)" opacity="0.3"/>
+						<rect x="8" y="8" width="8" height="8" rx="1.5" fill="var(--color-accent)"/>
+					</svg>
+					<span class="logo-text">Crate</span>
+				</a>
 				{#if players.length > 0}
 					<PlayerSelector
 						{players}
@@ -82,7 +86,7 @@
 						{@const pct = playerStorage.total > 0 ? Math.min((playerStorage.used / playerStorage.total) * 100, 100) : 0}
 						<div class="storage-row">
 							<div class="storage-bar">
-								<div class="storage-fill" style="width: {pct}%" class:storage-full={pct > 90}></div>
+								<div class="storage-fill" style="width: {pct}%" class:storage-warn={pct > 80} class:storage-full={pct > 95}></div>
 							</div>
 							<span class="storage-label">{formatBytes(playerStorage.free)} free</span>
 						</div>
@@ -91,6 +95,7 @@
 			</div>
 
 			<ul class="nav-list">
+				<li class="nav-section-label">Library</li>
 				<li class="nav-section">
 					<a
 						href="/library"
@@ -98,7 +103,9 @@
 						class:active={isActive('/library') && (page.url.searchParams.get('view') || 'artists') !== 'player'}
 					>
 						<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M4 6h16M4 10h16M4 14h10M4 18h7" />
+							<path d="M9 18V5l12-2v13" />
+							<circle cx="6" cy="18" r="3" />
+							<circle cx="18" cy="16" r="3" />
 						</svg>
 						<span>Music</span>
 					</a>
@@ -118,6 +125,8 @@
 						</ul>
 					{/if}
 				</li>
+
+				<li class="nav-section-label" style="margin-top: 0.75rem">Device</li>
 				<li>
 					<a
 						href="/library?view=player"
@@ -166,7 +175,7 @@
 	}
 
 	.sidebar {
-		width: 220px;
+		width: 230px;
 		flex-shrink: 0;
 		background: var(--color-surface);
 		border-right: 1px solid var(--color-border-subtle);
@@ -193,24 +202,29 @@
 	.sidebar-header {
 		padding: 0 1.25rem 1.25rem;
 		border-bottom: 1px solid var(--color-border-subtle);
-		margin-bottom: 0.75rem;
+		margin-bottom: 1rem;
 	}
 
+	/* Logo */
 	.logo {
-		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: 400;
-		letter-spacing: 0.01em;
-		color: var(--color-text);
-		margin: 0 0 0.875rem;
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.625rem;
+		margin-bottom: 1rem;
+		text-decoration: none;
 	}
 
-	.logo-icon {
-		color: var(--color-accent);
-		font-size: 0.875rem;
+	.logo-mark {
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+	}
+
+	.logo-text {
+		font-family: var(--font-display);
+		font-size: 1.375rem;
+		color: var(--color-text);
+		letter-spacing: -0.01em;
 	}
 
 	/* Storage bar */
@@ -236,6 +250,10 @@
 		transition: width 0.3s ease;
 	}
 
+	.storage-fill.storage-warn {
+		background: var(--color-accent);
+	}
+
 	.storage-fill.storage-full {
 		background: var(--color-danger);
 	}
@@ -254,7 +272,7 @@
 		padding: 0 0.625rem;
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 1px;
 	}
 
 	.nav-section {
@@ -262,15 +280,24 @@
 		flex-direction: column;
 	}
 
+	.nav-section-label {
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: var(--color-text-faint);
+		padding: 0.375rem 0.75rem 0.25rem;
+	}
+
 	.nav-link {
 		display: flex;
 		align-items: center;
 		gap: 0.625rem;
-		padding: 0.5rem 0.625rem;
-		border-radius: 6px;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-md);
 		color: var(--color-text-muted);
 		text-decoration: none;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		font-weight: 500;
 		transition: color 0.15s, background-color 0.15s;
 	}
@@ -282,13 +309,18 @@
 
 	.nav-link.active {
 		color: var(--color-accent);
-		background: rgba(212, 168, 67, 0.08);
+		background: var(--color-accent-soft);
 	}
 
 	.nav-icon {
-		width: 18px;
-		height: 18px;
+		width: 17px;
+		height: 17px;
 		flex-shrink: 0;
+		opacity: 0.75;
+	}
+
+	.nav-link.active .nav-icon {
+		opacity: 1;
 	}
 
 	/* Sub-navigation */
@@ -298,35 +330,46 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 1px;
+		gap: 0;
 	}
 
 	.sub-link {
 		display: block;
-		padding: 0.3125rem 0.625rem 0.3125rem 2.5rem;
-		border-radius: 5px;
+		padding: 0.25rem 0.75rem 0.25rem 2.625rem;
+		border-radius: var(--radius-sm);
 		color: var(--color-text-faint);
 		text-decoration: none;
 		font-size: 0.8125rem;
 		font-weight: 400;
 		transition: color 0.15s, background-color 0.15s;
+		position: relative;
 	}
 
 	.sub-link:hover {
 		color: var(--color-text);
-		background: var(--color-surface-raised);
 	}
 
 	.sub-link.active {
 		color: var(--color-text);
-		background: var(--color-surface-raised);
 		font-weight: 500;
+	}
+
+	.sub-link.active::before {
+		content: '';
+		position: absolute;
+		left: 1.625rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		background: var(--color-accent);
 	}
 
 	.main-content {
 		flex: 1;
 		min-width: 0;
-		padding: 2rem 2.5rem;
+		padding: 2.25rem 2.75rem;
 	}
 
 	@media (max-width: 768px) {
@@ -378,6 +421,10 @@
 			flex-direction: row;
 			padding: 0 0.5rem;
 			overflow-x: auto;
+		}
+
+		.nav-section-label {
+			display: none;
 		}
 
 		.sub-nav {

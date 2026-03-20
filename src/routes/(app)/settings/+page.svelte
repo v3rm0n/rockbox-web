@@ -766,9 +766,10 @@
 
 	.page-header h1 {
 		font-family: var(--font-display);
-		font-size: 1.5rem;
+		font-size: 1.75rem;
 		font-weight: 400;
 		margin: 0 0 1rem;
+		letter-spacing: -0.01em;
 	}
 
 	/* Tabs */
@@ -776,7 +777,8 @@
 		display: flex;
 		gap: 2px;
 		background: var(--color-surface);
-		border-radius: 6px;
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
 		padding: 3px;
 		width: fit-content;
 		margin-bottom: 2rem;
@@ -787,7 +789,7 @@
 		align-items: center;
 		gap: 0.375rem;
 		padding: 0.375rem 0.75rem;
-		border-radius: 4px;
+		border-radius: 5px;
 		border: none;
 		background: transparent;
 		color: var(--color-text-muted);
@@ -805,6 +807,7 @@
 	.tab.active {
 		background: var(--color-surface-raised);
 		color: var(--color-text);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.tab-badge {
@@ -837,8 +840,9 @@
 	/* Settings */
 	.settings-list {
 		background: var(--color-surface);
-		border-radius: 8px;
+		border-radius: var(--radius-lg);
 		overflow: hidden;
+		border: 1px solid var(--color-border-subtle);
 	}
 
 	.setting-row {
@@ -953,15 +957,16 @@
 		padding: 1rem 1.25rem;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 8px;
+		border-radius: var(--radius-lg);
 		text-align: left;
 		cursor: pointer;
-		transition: border-color 0.15s;
+		transition: border-color 0.2s, box-shadow 0.2s;
 		font-family: inherit;
 	}
 
 	.scan-btn:hover:not(:disabled) {
 		border-color: var(--color-accent-muted);
+		box-shadow: var(--shadow-glow);
 	}
 
 	.scan-btn:disabled {
@@ -990,8 +995,9 @@
 
 	.job-list {
 		background: var(--color-surface);
-		border-radius: 8px;
+		border-radius: var(--radius-lg);
 		overflow: hidden;
+		border: 1px solid var(--color-border-subtle);
 	}
 
 	.job-row {
@@ -1065,13 +1071,13 @@
 
 	/* Players */
 	.btn-primary {
-		padding: 0.375rem 0.875rem;
-		border-radius: 6px;
+		padding: 0.4375rem 1rem;
+		border-radius: var(--radius-md);
 		border: none;
 		background: var(--color-accent);
-		color: #1a1815;
+		color: #0e0d0b;
 		font-size: 0.8125rem;
-		font-weight: 500;
+		font-weight: 600;
 		cursor: pointer;
 		font-family: inherit;
 		transition: background 0.15s;
@@ -1123,18 +1129,23 @@
 
 	.player-card {
 		background: var(--color-surface);
-		border-radius: 8px;
+		border-radius: var(--radius-lg);
 		padding: 1rem 1.25rem;
 		border: 1px solid var(--color-border-subtle);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
+		transition: border-color 0.2s;
+	}
+
+	.player-card:hover {
+		border-color: var(--color-border);
 	}
 
 	.player-card.active {
 		border-color: var(--color-accent-muted);
-		background: rgba(212, 168, 67, 0.04);
+		background: var(--color-accent-soft);
 	}
 
 	.player-info {
@@ -1260,24 +1271,25 @@
 	.modal-backdrop {
 		position: fixed;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
+		background: rgba(0, 0, 0, 0.65);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		z-index: 9999;
 		padding: 1rem;
+		backdrop-filter: blur(4px);
 	}
 
 	.modal {
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
-		border-radius: 12px;
+		border-radius: var(--radius-xl);
 		padding: 1.75rem;
 		max-width: 480px;
 		width: 100%;
 		max-height: 80vh;
 		overflow-y: auto;
-		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+		box-shadow: var(--shadow-lg);
 	}
 
 	.modal-title {

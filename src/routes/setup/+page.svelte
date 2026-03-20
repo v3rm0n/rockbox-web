@@ -125,7 +125,11 @@
 <div class="setup-page">
 	<div class="setup-container">
 		<div class="setup-header">
-			<span class="setup-icon">◆</span>
+			<svg class="setup-icon" viewBox="0 0 24 24" fill="none">
+				<rect x="2" y="2" width="20" height="20" rx="3" fill="var(--color-accent)" opacity="0.15"/>
+				<rect x="5" y="5" width="14" height="14" rx="2" fill="var(--color-accent)" opacity="0.3"/>
+				<rect x="8" y="8" width="8" height="8" rx="1.5" fill="var(--color-accent)"/>
+			</svg>
 			<h1>Crate</h1>
 			<p class="setup-subtitle">First-time setup</p>
 		</div>
@@ -196,7 +200,7 @@
 					<div class="info-box">
 						<strong>No devices found</strong>
 						<p>Make sure your player is mounted at <code>{mountBase}</code>.</p>
-						<p>You can set the <code>PLAYER_MOUNT_BASE</code> or <code>PLAYER_BASE_PATH</code> environment variable to change the mount base path.</p>
+						<p>You can set the <code>PLAYER_MOUNT_BASE</code> environment variable to change the mount base path.</p>
 					</div>
 				{:else}
 					<div class="existing-dirs">
@@ -335,17 +339,17 @@
 	}
 
 	.setup-icon {
-		font-size: 1.5rem;
-		color: var(--color-accent);
-		display: block;
-		margin-bottom: 0.75rem;
+		width: 36px;
+		height: 36px;
+		margin: 0 auto 0.75rem;
 	}
 
 	.setup-header h1 {
 		font-family: var(--font-display);
-		font-size: 1.75rem;
+		font-size: 2rem;
 		font-weight: 400;
 		margin: 0 0 0.375rem;
+		letter-spacing: -0.01em;
 	}
 
 	.setup-subtitle {
@@ -426,7 +430,7 @@
 	.step-content {
 		background: var(--color-surface);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: 10px;
+		border-radius: var(--radius-xl);
 		padding: 2rem;
 	}
 

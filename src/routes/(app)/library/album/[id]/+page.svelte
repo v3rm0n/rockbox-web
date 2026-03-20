@@ -33,6 +33,13 @@
 		return `${m}:${s.toString().padStart(2, '0')}`;
 	}
 
+	function formatDurationLong(seconds: number): string {
+		const hours = Math.floor(seconds / 3600);
+		const mins = Math.floor((seconds % 3600) / 60);
+		if (hours > 0) return `${hours}h ${mins}m`;
+		return `${mins}m`;
+	}
+
 	function formatBytes(bytes: number): string {
 		if (bytes === 0) return '0 B';
 		const k = 1024;
@@ -162,7 +169,7 @@
 			hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
 		}
 		const hue = Math.abs(hash) % 360;
-		return `linear-gradient(145deg, hsl(${hue}, 38%, 22%), hsl(${(hue + 40) % 360}, 42%, 15%))`;
+		return `linear-gradient(145deg, hsl(${hue}, 35%, 20%), hsl(${(hue + 40) % 360}, 40%, 13%))`;
 	}
 
 	let syncedCount = $derived(tracks.filter(t => t.is_synced).length);
@@ -173,7 +180,12 @@
 </script>
 
 <div class="album-page">
-	<a href="/library" class="back-link">← Music</a>
+	<a href="/library?view=albums" class="back-link">
+		<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;display:inline;vertical-align:-2px">
+			<path d="M10 3L5 8l5 5"/>
+		</svg>
+		Albums
+	</a>
 
 	{#if loading}
 		<div class="loading-state">
@@ -181,9 +193,11 @@
 		</div>
 	{:else}
 		{@const artUrl = `/api/library/art/${encodeURIComponent(artistName + ':' + albumName)}`}
-		<header class="album-header">
+
+		<!-- Hero header -->
+		<header class="album-hero">
 			<div class="album-art-large" style="background: {albumGradient(albumName || '?')}">
-				<span>{albumName?.charAt(0) || '?'}</span>
+				<span class="art-letter">{albumName?.charAt(0) || '?'}</span>
 				<img
 					src={artUrl}
 					alt=""
@@ -192,20 +206,23 @@
 				/>
 			</div>
 			<div class="album-details">
-				<h1>{albumName}</h1>
-				<p class="album-artist-name">{artistName}</p>
+				<h1 class="album-title">{albumName}</h1>
+				<p class="album-artist">{artistName}</p>
 				<div class="album-meta">
 					<span>{tracks.length} tracks</span>
-					<span>{formatDuration(totalDuration)}</span>
+					<span>{formatDurationLong(totalDuration)}</span>
 					<span>{formatBytes(totalSize)}</span>
 				</div>
-				<div class="sync-status-bar">
+				<div class="sync-status">
 					{#if syncedCount === tracks.length}
-						<span class="sync-indicator synced">✓ Fully synced</span>
+						<span class="sync-pill synced">
+							<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M3 8l3.5 3.5L13 4.5"/></svg>
+							Fully synced
+						</span>
 					{:else if syncedCount > 0}
-						<span class="sync-indicator partial">◐ {syncedCount}/{tracks.length} synced</span>
+						<span class="sync-pill partial">{syncedCount}/{tracks.length} synced</span>
 					{:else}
-						<span class="sync-indicator unsynced">Not on player</span>
+						<span class="sync-pill unsynced">Not on player</span>
 					{/if}
 				</div>
 			</div>
@@ -218,7 +235,7 @@
 				<button class="btn-action" onclick={syncSelected} disabled={syncing}>
 					{syncing ? 'Syncing...' : `Sync ${selectedIds.size} tracks`}
 				</button>
-				<button class="btn-action-ghost" onclick={clearSelection}>Clear</button>
+				<button class="btn-ghost" onclick={clearSelection}>Clear</button>
 			{:else}
 				{#if syncedCount < tracks.length}
 					<button class="btn-action" onclick={syncAll} disabled={syncing}>
@@ -226,10 +243,10 @@
 					</button>
 				{/if}
 				{#if tracks.some(t => !t.is_synced)}
-					<button class="btn-action-ghost" onclick={selectAllUnsynced}>Select unsynced</button>
+					<button class="btn-ghost" onclick={selectAllUnsynced}>Select unsynced</button>
 				{/if}
 				{#if syncedCount > 0}
-					<button class="btn-action-danger" onclick={removeAlbum} disabled={removing}>
+					<button class="btn-danger" onclick={removeAlbum} disabled={removing}>
 						{removing ? 'Removing...' : 'Remove from player'}
 					</button>
 				{/if}
@@ -288,44 +305,48 @@
 	}
 
 	.back-link {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
 		color: var(--color-text-muted);
 		text-decoration: none;
 		font-size: 0.8125rem;
-		margin-bottom: 1.5rem;
+		margin-bottom: 1.75rem;
 		transition: color 0.15s;
+		font-weight: 500;
 	}
 
 	.back-link:hover {
 		color: var(--color-accent);
 	}
 
-	/* Album header */
-	.album-header {
+	/* Hero header */
+	.album-hero {
 		display: flex;
-		gap: 1.5rem;
-		margin-bottom: 1.75rem;
+		gap: 1.75rem;
+		margin-bottom: 2rem;
 	}
 
 	.album-art-large {
-		width: 120px;
-		height: 120px;
-		border-radius: 8px;
+		width: 160px;
+		height: 160px;
+		border-radius: var(--radius-lg);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		box-shadow: var(--shadow-lg);
 		overflow: hidden;
 		position: relative;
 	}
 
-	.album-art-large span {
+	.art-letter {
 		font-family: var(--font-display);
-		font-size: 2.5rem;
-		color: rgba(255, 255, 255, 0.6);
+		font-size: 3rem;
+		color: rgba(255, 255, 255, 0.5);
 		font-weight: 400;
 		text-transform: uppercase;
+		user-select: none;
 	}
 
 	.album-art-img {
@@ -340,20 +361,23 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		gap: 0.25rem;
+		gap: 0.375rem;
 	}
 
-	.album-details h1 {
+	.album-title {
 		font-family: var(--font-display);
-		font-size: 1.5rem;
+		font-size: 1.75rem;
 		font-weight: 400;
 		margin: 0;
+		letter-spacing: -0.01em;
+		line-height: 1.2;
 	}
 
-	.album-artist-name {
+	.album-artist {
 		color: var(--color-text-muted);
 		font-size: 0.9375rem;
 		margin: 0;
+		font-weight: 500;
 	}
 
 	.album-meta {
@@ -373,18 +397,32 @@
 		content: '';
 	}
 
-	.sync-status-bar {
-		margin-top: 0.375rem;
+	.sync-status {
+		margin-top: 0.5rem;
 	}
 
-	.sync-indicator {
-		font-size: 0.8125rem;
-		font-weight: 500;
+	.sync-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.625rem;
+		border-radius: 100px;
 	}
 
-	.sync-indicator.synced { color: var(--color-synced); }
-	.sync-indicator.partial { color: var(--color-partial); }
-	.sync-indicator.unsynced { color: var(--color-text-faint); }
+	.sync-pill.synced {
+		color: var(--color-synced);
+		background: rgba(72, 171, 102, 0.1);
+	}
+	.sync-pill.partial {
+		color: var(--color-partial);
+		background: rgba(196, 154, 60, 0.1);
+	}
+	.sync-pill.unsynced {
+		color: var(--color-text-faint);
+		background: var(--color-surface-raised);
+	}
 
 	/* Action bar */
 	.action-bar {
@@ -402,13 +440,13 @@
 	}
 
 	.btn-action {
-		padding: 0.375rem 0.875rem;
-		border-radius: 5px;
+		padding: 0.4375rem 1rem;
+		border-radius: var(--radius-md);
 		border: none;
 		background: var(--color-accent);
-		color: #1a1815;
+		color: #0e0d0b;
 		font-size: 0.8125rem;
-		font-weight: 500;
+		font-weight: 600;
 		cursor: pointer;
 		font-family: inherit;
 		transition: background 0.15s;
@@ -423,25 +461,26 @@
 		cursor: not-allowed;
 	}
 
-	.btn-action-ghost {
-		padding: 0.375rem 0.75rem;
-		border-radius: 5px;
+	.btn-ghost {
+		padding: 0.4375rem 0.875rem;
+		border-radius: var(--radius-md);
 		border: 1px solid var(--color-border);
 		background: transparent;
 		color: var(--color-text-muted);
 		font-size: 0.8125rem;
 		cursor: pointer;
 		font-family: inherit;
+		transition: all 0.15s;
 	}
 
-	.btn-action-ghost:hover {
+	.btn-ghost:hover {
 		border-color: var(--color-text-faint);
 		color: var(--color-text);
 	}
 
-	.btn-action-danger {
-		padding: 0.375rem 0.875rem;
-		border-radius: 5px;
+	.btn-danger {
+		padding: 0.4375rem 1rem;
+		border-radius: var(--radius-md);
 		border: 1px solid var(--color-danger);
 		background: transparent;
 		color: var(--color-danger);
@@ -449,15 +488,15 @@
 		font-weight: 500;
 		cursor: pointer;
 		font-family: inherit;
-		transition: background 0.15s, color 0.15s;
+		transition: all 0.15s;
 	}
 
-	.btn-action-danger:hover:not(:disabled) {
+	.btn-danger:hover:not(:disabled) {
 		background: var(--color-danger);
 		color: #fff;
 	}
 
-	.btn-action-danger:disabled {
+	.btn-danger:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
@@ -465,8 +504,9 @@
 	/* Track list */
 	.track-list {
 		background: var(--color-surface);
-		border-radius: 8px;
+		border-radius: var(--radius-lg);
 		overflow: hidden;
+		border: 1px solid var(--color-border-subtle);
 	}
 
 	.track-row {
@@ -484,15 +524,19 @@
 	}
 
 	.track-row:hover {
-		background: var(--color-surface-raised);
+		background: var(--color-surface-hover);
 	}
 
 	.track-row.selected {
-		background: rgba(212, 168, 67, 0.06);
+		background: var(--color-accent-soft);
 	}
 
 	.track-row.synced {
-		opacity: 0.7;
+		opacity: 0.55;
+	}
+
+	.track-row.synced:hover {
+		opacity: 0.75;
 	}
 
 	/* Selection checkbox */
@@ -514,20 +558,25 @@
 	}
 
 	.check-off {
-		width: 16px;
-		height: 16px;
+		width: 14px;
+		height: 14px;
 		border: 1.5px solid var(--color-border);
 		border-radius: 3px;
 		display: block;
+		transition: border-color 0.15s;
+	}
+
+	.check-off:hover {
+		border-color: var(--color-text-faint);
 	}
 
 	.check-on {
-		width: 16px;
-		height: 16px;
+		width: 14px;
+		height: 14px;
 		background: var(--color-accent);
 		border-radius: 3px;
-		color: #1a1815;
-		font-size: 0.625rem;
+		color: #0e0d0b;
+		font-size: 0.5625rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -554,6 +603,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		color: var(--color-text);
+		font-weight: 500;
 	}
 
 	.track-duration {
@@ -607,13 +657,27 @@
 	@keyframes spin { to { transform: rotate(360deg); } }
 
 	@media (max-width: 640px) {
-		.album-header {
+		.album-hero {
 			flex-direction: column;
 			align-items: center;
 			text-align: center;
 		}
 
+		.album-art-large {
+			width: 140px;
+			height: 140px;
+		}
+
+		.album-details {
+			align-items: center;
+		}
+
 		.album-meta {
+			justify-content: center;
+		}
+
+		.sync-status {
+			display: flex;
 			justify-content: center;
 		}
 
