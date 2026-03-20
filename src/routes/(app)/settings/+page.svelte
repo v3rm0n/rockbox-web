@@ -70,6 +70,8 @@
 	let availableDirectories = $state<{ name: string; path: string }[]>([]);
 	let loadingDirectories = $state(false);
 	let savingPlayer = $state(false);
+	let newDirInput = $state('');
+	let creatingDir = $state(false);
 	let editingPlayer: Player | null = $state(null);
 	let showDeleteConfirm: number | null = $state(null);
 
@@ -170,6 +172,31 @@
 		}
 	}
 
+	async function createDirectory() {
+		if (!newDirInput.trim() || !selectedDevice) return;
+		creatingDir = true;
+		try {
+			const parentPath = managedDirInput
+				? `${selectedDevice.path}/${managedDirInput}`
+				: selectedDevice.path;
+			const res = await fetch('/api/players/browse', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ path: parentPath, name: newDirInput.trim() })
+			});
+			if (res.ok) {
+				const newRelative = managedDirInput
+					? `${managedDirInput}/${newDirInput.trim()}`
+					: newDirInput.trim();
+				const newAbsolute = `${parentPath}/${newDirInput.trim()}`;
+				newDirInput = '';
+				await browseDirectories(newAbsolute, newRelative);
+			}
+		} finally {
+			creatingDir = false;
+		}
+	}
+
 	function confirmManagedDir() {
 		playerNameInput = selectedDevice?.name || '';
 		addPlayerStep = 4;
@@ -244,15 +271,17 @@
 		}
 	}
 
-	function openAddPlayerModal() {
+	async function openAddPlayerModal() {
 		editingPlayer = null;
 		addPlayerStep = 1;
 		selectedDevice = null;
 		managedDirInput = '';
 		playerNameInput = '';
+		newDirInput = '';
 		availableDirectories = [];
 		if (playersData?.mountBase) {
 			mountBaseInput = playersData.mountBase;
+			await loadPlayers();
 			addPlayerStep = 2;
 		}
 		showAddPlayerModal = true;
@@ -273,6 +302,7 @@
 		selectedDevice = null;
 		managedDirInput = '';
 		playerNameInput = '';
+		newDirInput = '';
 		availableDirectories = [];
 	}
 
@@ -659,28 +689,61 @@
 					<div class="directory-browser">
 						<div class="current-path">
 							<span class="path-label">Current:</span>
-							<code>{managedDirInput || selectedDevice?.path}</code>
+							<code>{managedDirInput || '/ (root)'}</code>
+							{#if managedDirInput && selectedDevice}
+								<button
+									class="btn-up"
+									onclick={() => {
+										const dev = selectedDevice;
+										if (!dev) return;
+										const parts = managedDirInput.split('/');
+										parts.pop();
+										const parentRelative = parts.join('/');
+										const parentAbsolute = parentRelative
+											? `${dev.path}/${parentRelative}`
+											: dev.path;
+										browseDirectories(parentAbsolute, parentRelative);
+									}}
+								>
+									Up
+								</button>
+							{/if}
 						</div>
 						{#if loadingDirectories}
 							<div class="loading-dirs">
 								<div class="spinner-small"></div>
 								<span>Loading...</span>
 							</div>
-						{:else if availableDirectories.length === 0}
-							<p class="no-dirs">No subdirectories found</p>
 						{:else}
-							<div class="directory-list">
-								{#each availableDirectories as dir}
-									{@const relativePath = selectedDevice ? dir.path.slice(selectedDevice.path.length).replace(/^\//, '') : dir.name}
-									<button
-										class="directory-option"
-										onclick={() => browseDirectories(dir.path, relativePath)}
-									>
-										<span class="dir-icon">📁</span>
-										<span class="dir-name">{dir.name}</span>
-										<span class="dir-path">{relativePath}</span>
-									</button>
-								{/each}
+							{#if availableDirectories.length > 0}
+								<div class="directory-list">
+									{#each availableDirectories as dir}
+										{@const relativePath = selectedDevice ? dir.path.slice(selectedDevice.path.length).replace(/^\//, '') : dir.name}
+										<button
+											class="directory-option"
+											onclick={() => browseDirectories(dir.path, relativePath)}
+										>
+											<span class="dir-name">{dir.name}</span>
+										</button>
+									{/each}
+								</div>
+							{:else}
+								<p class="no-dirs">No subdirectories</p>
+							{/if}
+							<div class="create-dir-row">
+								<input
+									type="text"
+									bind:value={newDirInput}
+									placeholder="New folder name"
+									onkeydown={(e) => { if (e.key === 'Enter') createDirectory(); }}
+								/>
+								<button
+									class="btn-create-dir"
+									onclick={createDirectory}
+									disabled={creatingDir || !newDirInput.trim()}
+								>
+									{creatingDir ? 'Creating...' : 'Create'}
+								</button>
 							</div>
 						{/if}
 					</div>
@@ -1568,6 +1631,65 @@
 		font-size: 0.6875rem;
 		color: var(--color-text-faint);
 		font-family: monospace;
+	}
+
+	.btn-up {
+		font-size: 0.75rem;
+		padding: 0.125rem 0.5rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 4px;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		font-family: inherit;
+	}
+
+	.btn-up:hover {
+		border-color: var(--color-accent-muted);
+		color: var(--color-text);
+	}
+
+	.create-dir-row {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+	}
+
+	.create-dir-row input {
+		flex: 1;
+		padding: 0.375rem 0.5rem;
+		font-size: 0.8125rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 4px;
+		color: var(--color-text);
+		font-family: inherit;
+	}
+
+	.create-dir-row input:focus {
+		outline: none;
+		border-color: var(--color-accent-muted);
+	}
+
+	.btn-create-dir {
+		padding: 0.375rem 0.75rem;
+		font-size: 0.8125rem;
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 4px;
+		color: var(--color-text);
+		cursor: pointer;
+		font-family: inherit;
+		white-space: nowrap;
+	}
+
+	.btn-create-dir:hover:not(:disabled) {
+		border-color: var(--color-accent-muted);
+	}
+
+	.btn-create-dir:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.selected-path {

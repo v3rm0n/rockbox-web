@@ -16,6 +16,8 @@
 	let initProgress = $state('');
 	let error = $state('');
 	let mountBase = $state('');
+	let newDirInput = $state('');
+	let creatingDir = $state(false);
 
 	async function discoverDevices() {
 		loading = true;
@@ -74,6 +76,36 @@
 			error = 'Failed to browse directory';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function createDirectory() {
+		if (!newDirInput.trim() || !selectedDevice) return;
+		creatingDir = true;
+		try {
+			const parentPath = managedDirInput
+				? `${selectedDevice.path}/${managedDirInput}`
+				: selectedDevice.path;
+			const res = await fetch('/api/players/browse', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ path: parentPath, name: newDirInput.trim() })
+			});
+			if (res.ok) {
+				const newRelative = managedDirInput
+					? `${managedDirInput}/${newDirInput.trim()}`
+					: newDirInput.trim();
+				const newAbsolute = `${parentPath}/${newDirInput.trim()}`;
+				newDirInput = '';
+				await browseDirectory(newAbsolute, newRelative);
+			} else {
+				const data = await res.json();
+				error = data.error || 'Failed to create directory';
+			}
+		} catch {
+			error = 'Failed to create directory';
+		} finally {
+			creatingDir = false;
 		}
 	}
 
@@ -246,21 +278,63 @@
 						<div class="spinner"></div>
 						<p>Loading directories...</p>
 					</div>
-				{:else if directories.length > 0}
+				{:else}
 					<div class="existing-dirs">
-						<span class="existing-dirs-label">Directories:</span>
-						<div class="dir-list">
-							{#each directories as dir}
-								{@const relativePath = selectedDevice ? dir.path.slice(selectedDevice.path.length).replace(/^\//, '') : dir.name}
+						<div class="existing-dirs-header">
+							<span class="existing-dirs-label">
+								{managedDirInput ? managedDirInput : '/ (root)'}
+							</span>
+							{#if managedDirInput && selectedDevice}
 								<button
-									class="dir-item"
-									class:selected={managedDirInput === relativePath}
-									onclick={() => browseDirectory(dir.path, relativePath)}
+									class="btn btn-ghost btn-small"
+									onclick={() => {
+										const dev = selectedDevice;
+										if (!dev) return;
+										const parts = managedDirInput.split('/');
+										parts.pop();
+										const parentRelative = parts.join('/');
+										const parentAbsolute = parentRelative
+											? `${dev.path}/${parentRelative}`
+											: dev.path;
+										browseDirectory(parentAbsolute, parentRelative);
+									}}
 								>
-									<span class="dir-icon">📁</span>
-									<span class="dir-item-name">{dir.name}</span>
+									Up
 								</button>
-							{/each}
+							{/if}
+						</div>
+						{#if directories.length > 0}
+							<div class="dir-list">
+								{#each directories as dir}
+									{@const relativePath = selectedDevice ? dir.path.slice(selectedDevice.path.length).replace(/^\//, '') : dir.name}
+									<button
+										class="dir-item"
+										class:selected={managedDirInput === relativePath}
+										onclick={() => browseDirectory(dir.path, relativePath)}
+									>
+										<span class="dir-icon">📁</span>
+										<span class="dir-item-name">{dir.name}</span>
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<p class="no-dirs-hint">No subdirectories</p>
+						{/if}
+						<div class="create-dir-row">
+							<input
+								type="text"
+								class="path-editable"
+								bind:value={newDirInput}
+								placeholder="New folder name"
+								onkeydown={(e) => { if (e.key === 'Enter') createDirectory(); }}
+							/>
+							<button
+								class="btn btn-ghost btn-small"
+								onclick={createDirectory}
+								disabled={creatingDir || !newDirInput.trim()}
+							>
+								{creatingDir ? 'Creating...' : 'Create'}
+							</button>
 						</div>
 					</div>
 				{/if}
@@ -603,6 +677,40 @@
 		font-size: 0.75rem;
 		color: var(--color-text-faint);
 		font-family: ui-monospace, monospace;
+	}
+
+	.existing-dirs-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.5rem;
+	}
+
+	.existing-dirs-header .existing-dirs-label {
+		margin-bottom: 0;
+	}
+
+	.btn-small {
+		padding: 0.25rem 0.625rem;
+		font-size: 0.75rem;
+	}
+
+	.no-dirs-hint {
+		font-size: 0.8125rem;
+		color: var(--color-text-faint);
+		text-align: center;
+		padding: 0.75rem 0;
+		margin: 0;
+	}
+
+	.create-dir-row {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+
+	.create-dir-row input {
+		flex: 1;
 	}
 
 	.selected-dir-info {
