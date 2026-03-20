@@ -11,8 +11,9 @@ Works with any DAP (digital audio player) that presents itself as a USB drive �
 ## Features
 
 - **Library browser** — browse your music library by artist and album with search
+- **Album art** — automatically extracts and displays embedded cover art
 - **Sync status tracking** — instantly see which albums are fully synced, partially synced, or not on the player
-- **Manual sync** — copy individual tracks or entire albums to the player with one click
+- **Background sync** — copy tracks or entire albums with real-time progress tracking
 - **Player browser** — view and manage what's on the player, remove tracks
 - **Storage dashboard** — monitor player storage usage, top artists by size
 - **First-run setup wizard** — pick or create a managed directory on the player, auto-migrate existing files
@@ -112,7 +113,9 @@ When using multiple players, the player mount base should be a parent directory 
 
 Set `PLAYER_MOUNT_BASE=/mnt/disks` and Crate will discover all three as separate manageable players.
 
-FLAC, MP3, OGG, AAC, WAV
+### Supported formats
+
+FLAC, MP3, OGG, AAC, WAV, M4A
 
 ## First-run setup
 
