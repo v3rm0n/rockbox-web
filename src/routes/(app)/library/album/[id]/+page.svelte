@@ -156,6 +156,19 @@
 	let syncedCount = $derived(tracks.filter(t => t.is_synced).length);
 	let totalSize = $derived(tracks.reduce((s, t) => s + (t.file_size || 0), 0));
 	let totalDuration = $derived(tracks.reduce((s, t) => s + (t.duration || 0), 0));
+	let hasMultipleDiscs = $derived(new Set(tracks.map(t => t.disc_number || 1)).size > 1);
+	let discGroups = $derived(() => {
+		if (!hasMultipleDiscs) return [{ disc: 1, tracks }];
+		const groups = new Map<number, Track[]>();
+		for (const track of tracks) {
+			const disc = track.disc_number || 1;
+			if (!groups.has(disc)) groups.set(disc, []);
+			groups.get(disc)!.push(track);
+		}
+		return [...groups.entries()]
+			.sort(([a], [b]) => a - b)
+			.map(([disc, tracks]) => ({ disc, tracks }));
+	});
 
 	onMount(loadTracks);
 </script>
@@ -236,45 +249,50 @@
 
 		<!-- Track list -->
 		<div class="track-list">
-			{#each tracks as track}
-				<div
-					class="track-row"
-					class:synced={track.is_synced}
-					class:selected={selectedIds.has(track.id)}
-				>
-					<button
-						class="track-select"
-						class:checked={selectedIds.has(track.id)}
-						onclick={() => toggleTrack(track.id)}
-						disabled={!!track.is_synced}
+			{#each discGroups() as group}
+				{#if hasMultipleDiscs}
+					<div class="disc-header">Disc {group.disc}</div>
+				{/if}
+				{#each group.tracks as track}
+					<div
+						class="track-row"
+						class:synced={track.is_synced}
+						class:selected={selectedIds.has(track.id)}
 					>
-						{#if track.is_synced}
-							<span class="check-synced">✓</span>
-						{:else if selectedIds.has(track.id)}
-							<span class="check-on">✓</span>
-						{:else}
-							<span class="check-off"></span>
-						{/if}
-					</button>
+						<button
+							class="track-select"
+							class:checked={selectedIds.has(track.id)}
+							onclick={() => toggleTrack(track.id)}
+							disabled={!!track.is_synced}
+						>
+							{#if track.is_synced}
+								<span class="check-synced">✓</span>
+							{:else if selectedIds.has(track.id)}
+								<span class="check-on">✓</span>
+							{:else}
+								<span class="check-off"></span>
+							{/if}
+						</button>
 
-					<span class="track-num">
-						{track.disc_number && track.disc_number > 1 ? `${track.disc_number}-` : ''}{track.track_number || '-'}
-					</span>
+						<span class="track-num">
+							{track.track_number || '-'}
+						</span>
 
-					<span class="track-title">
-						{track.title || 'Unknown Title'}
-					</span>
+						<span class="track-title">
+							{track.title || 'Unknown Title'}
+						</span>
 
-					<span class="track-duration">{formatDuration(track.duration)}</span>
+						<span class="track-duration">{formatDuration(track.duration)}</span>
 
-					<span class="track-format">{track.format}</span>
+						<span class="track-format">{track.format}</span>
 
-					<span class="track-bitrate">
-						{track.bitrate ? `${track.bitrate}k` : ''}
-					</span>
+						<span class="track-bitrate">
+							{track.bitrate ? `${track.bitrate}k` : ''}
+						</span>
 
-					<span class="track-size">{formatBytes(track.file_size)}</span>
-				</div>
+						<span class="track-size">{formatBytes(track.file_size)}</span>
+					</div>
+				{/each}
 			{/each}
 		</div>
 	{/if}
@@ -488,6 +506,17 @@
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		border: 1px solid var(--color-border-subtle);
+	}
+
+	.disc-header {
+		padding: 0.625rem 1rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-faint);
+		background: var(--color-surface-raised);
+		border-bottom: 1px solid var(--color-border-subtle);
 	}
 
 	.track-row {

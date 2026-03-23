@@ -146,6 +146,31 @@ export async function scanPlayer(
 				} catch { /* ignore decode errors */ }
 			}
 
+			if (!libraryTrack) {
+				// Try stripping disc/media subdirectories (e.g. "CD 01/", "12 Vinyl 02/", "CD-R 01/")
+				// Multi-CD albums may have these on the player but not in the library
+				const strippedPath = relativePath.replace(/\/(?:CD[-\s]?\d+|(?:12 )?Vinyl \d+|Digital Media \d+)\//i, '/');
+				if (strippedPath !== relativePath) {
+					libraryTrack = findLibraryTrack.get(strippedPath) as { id: number } | undefined;
+					if (!libraryTrack) {
+						// Also try with encoding fixes on the stripped path
+						const nfcStripped = strippedPath.normalize('NFC');
+						if (nfcStripped !== strippedPath) {
+							libraryTrack = findLibraryTrack.get(nfcStripped) as { id: number } | undefined;
+						}
+						if (!libraryTrack) {
+							try {
+								const buf = Buffer.from(strippedPath, 'latin1');
+								const decoded = buf.toString('utf8');
+								if (decoded !== strippedPath && !decoded.includes('\ufffd')) {
+									libraryTrack = findLibraryTrack.get(decoded.normalize('NFC')) as { id: number } | undefined;
+								}
+							} catch { /* ignore */ }
+						}
+					}
+				}
+			}
+
 			insertStmt.run(
 				playerId,
 				relativePath,
