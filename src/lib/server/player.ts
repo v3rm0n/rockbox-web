@@ -1,5 +1,5 @@
 import db from './db.js';
-import { getPlayerManagedPath, getPlayer, type Player } from './players.js';
+import { getPlayerManagedPath, getPlayer, isPlayerMounted, type Player } from './players.js';
 import { isSupportedAudioFile } from './metadata.js';
 import { createLogger } from './logger.js';
 import fs from 'node:fs';
@@ -46,6 +46,17 @@ export async function scanPlayer(
 			current: 0,
 			total: 0,
 			error: 'Player not found'
+		});
+		return;
+	}
+
+	if (!isPlayerMounted(player.mount_path)) {
+		log.error('Player drive is not mounted', { playerId, mountPath: player.mount_path });
+		onProgress?.({
+			phase: 'error',
+			current: 0,
+			total: 0,
+			error: 'Player drive is not mounted'
 		});
 		return;
 	}
@@ -157,6 +168,11 @@ export function getPlayerStorage(playerId: number): {
 	const player = getPlayer(playerId);
 	if (!player) {
 		log.error('Player not found for storage info', { playerId });
+		return { total: 0, used: 0, free: 0, managedSize: 0 };
+	}
+
+	if (!isPlayerMounted(player.mount_path)) {
+		log.warn('Player drive is not mounted, cannot get storage', { playerId, mountPath: player.mount_path });
 		return { total: 0, used: 0, free: 0, managedSize: 0 };
 	}
 

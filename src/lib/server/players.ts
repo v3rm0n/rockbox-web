@@ -18,6 +18,23 @@ export interface Player {
 export interface PlayerWithStats extends Player {
 	track_count: number;
 	total_size: number;
+	is_mounted: boolean;
+}
+
+/**
+ * Check if a player's drive is actually mounted by comparing device IDs.
+ * When a drive is mounted at a path, the path and its parent will have
+ * different device IDs. When unmounted, the empty mountpoint directory
+ * sits on the same filesystem as its parent.
+ */
+export function isPlayerMounted(mountPath: string): boolean {
+	try {
+		const parentStat = fs.statSync(path.dirname(mountPath));
+		const dirStat = fs.statSync(mountPath);
+		return parentStat.dev !== dirStat.dev;
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -81,7 +98,10 @@ export function getPlayers(): PlayerWithStats[] {
 		ORDER BY p.created_at
 	`).all() as PlayerWithStats[];
 
-	return players;
+	return players.map(p => ({
+		...p,
+		is_mounted: isPlayerMounted(p.mount_path)
+	}));
 }
 
 /**

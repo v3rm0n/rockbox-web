@@ -1,6 +1,6 @@
 import db from './db.js';
 import { getLibraryPath } from './settings.js';
-import { getPlayerManagedPath, getPlayer } from './players.js';
+import { getPlayerManagedPath, getPlayer, isPlayerMounted } from './players.js';
 import { createLogger } from './logger.js';
 import fs from 'node:fs/promises';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -50,6 +50,11 @@ export function startCopyToPlayer(
 	if (!player) {
 		log.error('Cannot copy to player: player not found', { playerId });
 		throw new Error('Player not found');
+	}
+
+	if (!isPlayerMounted(player.mount_path)) {
+		log.error('Cannot copy to player: drive is not mounted', { playerId, mountPath: player.mount_path });
+		throw new Error('Player drive is not mounted');
 	}
 
 	const managedPath = getPlayerManagedPath(playerId);
@@ -167,6 +172,11 @@ export function startRemoveFromPlayer(
 	if (!player) {
 		log.error('Cannot remove from player: player not found', { playerId });
 		throw new Error('Player not found');
+	}
+
+	if (!isPlayerMounted(player.mount_path)) {
+		log.error('Cannot remove from player: drive is not mounted', { playerId, mountPath: player.mount_path });
+		throw new Error('Player drive is not mounted');
 	}
 
 	const managedPath = getPlayerManagedPath(playerId);

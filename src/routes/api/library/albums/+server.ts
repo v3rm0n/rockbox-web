@@ -47,7 +47,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	const countQuery = `
 		SELECT COUNT(*) as total FROM (
-			SELECT lt.album
+			SELECT lt.album, COUNT(lt.id) as track_count, COUNT(pt.id) as synced_count
 			FROM library_tracks lt
 			${playerJoin}
 			${whereClause}

@@ -7,6 +7,7 @@
 		is_active: number;
 		track_count: number;
 		total_size: number;
+		is_mounted: boolean;
 	}
 
 	interface Props {
@@ -54,9 +55,16 @@
 	>
 		{#if activePlayer}
 			<div class="player-info">
-				<span class="player-name">{activePlayer.name}</span>
+				<span class="player-name">
+					{#if !activePlayer.is_mounted}<span class="disconnected-dot"></span>{/if}
+					{activePlayer.name}
+				</span>
 				<span class="player-stats">
-					{activePlayer.track_count.toLocaleString()} tracks · {formatBytes(activePlayer.total_size)}
+					{#if activePlayer.is_mounted}
+						{activePlayer.track_count.toLocaleString()} tracks · {formatBytes(activePlayer.total_size)}
+					{:else}
+						Disconnected
+					{/if}
 				</span>
 			</div>
 		{:else}
@@ -87,12 +95,20 @@
 							type="button"
 							class="player-option"
 							class:active={player.id === activePlayer?.id}
+							class:disconnected={!player.is_mounted}
 							onclick={() => handleSelect(player.id)}
 						>
 							<div class="option-info">
-								<span class="option-name">{player.name}</span>
+								<span class="option-name">
+									{#if !player.is_mounted}<span class="disconnected-dot"></span>{/if}
+									{player.name}
+								</span>
 								<span class="option-stats">
-									{player.track_count.toLocaleString()} tracks · {formatBytes(player.total_size)}
+									{#if player.is_mounted}
+										{player.track_count.toLocaleString()} tracks · {formatBytes(player.total_size)}
+									{:else}
+										Disconnected
+									{/if}
 								</span>
 							</div>
 							{#if player.id === activePlayer?.id}
@@ -291,6 +307,20 @@
 	.option-stats {
 		font-size: 0.6875rem;
 		color: var(--color-text-muted);
+	}
+
+	.disconnected-dot {
+		display: inline-block;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--color-error, #e55);
+		margin-right: 0.25rem;
+		vertical-align: middle;
+	}
+
+	.player-option.disconnected {
+		opacity: 0.6;
 	}
 
 	.check-icon {

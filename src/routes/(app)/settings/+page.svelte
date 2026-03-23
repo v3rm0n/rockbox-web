@@ -39,6 +39,7 @@
 		track_count: number;
 		total_size: number;
 		is_active: boolean;
+		is_mounted: boolean;
 	}
 
 	interface DiscoveredDevice {
@@ -532,6 +533,9 @@
 										{player.name}
 										{#if player.is_active}
 											<span class="active-badge">Active</span>
+										{/if}
+										{#if !player.is_mounted}
+											<span class="disconnected-badge">Disconnected</span>
 										{/if}
 									</span>
 								</div>
@@ -1246,6 +1250,17 @@
 		padding: 0.0625rem 0.375rem;
 		background: var(--color-accent);
 		color: #1a1815;
+		border-radius: 3px;
+	}
+
+	.disconnected-badge {
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		padding: 0.0625rem 0.375rem;
+		background: var(--color-error, #e55);
+		color: #fff;
 		border-radius: 3px;
 	}
 

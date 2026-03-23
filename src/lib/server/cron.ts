@@ -2,7 +2,7 @@ import db from './db.js';
 import { scanLibrary } from './scanner.js';
 import { scanPlayer } from './player.js';
 import { isSetupComplete } from './settings.js';
-import { getActivePlayer, getPlayers } from './players.js';
+import { getActivePlayer, getPlayers, isPlayerMounted } from './players.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('cron');
@@ -54,6 +54,10 @@ async function runScanCycle(): Promise<void> {
 			log.info('No players configured, skipping player scans');
 		} else {
 			for (const player of players) {
+				if (!isPlayerMounted(player.mount_path)) {
+					log.info('Skipping unmounted player', { playerId: player.id, name: player.name, mountPath: player.mount_path });
+					continue;
+				}
 				log.info('Scanning player', { playerId: player.id, name: player.name });
 				await scanPlayer(player.id);
 			}

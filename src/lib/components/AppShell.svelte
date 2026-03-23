@@ -18,6 +18,7 @@
 		is_active: number;
 		track_count: number;
 		total_size: number;
+		is_mounted: boolean;
 	}
 
 	let { children, players = [], activePlayer = null, onPlayerSelect }: {
