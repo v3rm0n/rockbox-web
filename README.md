@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker Image](https://img.shields.io/badge/ghcr.io-v3rm0n%2Fcrate-blue)](https://github.com/v3rm0n/crate/pkgs/container/crate)
 
-A web application for managing music on portable audio players. Runs as a Docker container on your NAS (Unraid, Synology, etc.), mounts your music library and player storage, and lets you browse, search, and sync music through a clean web interface.
+A web application for managing music on portable audio players. Runs as a Docker container, mounts your music library and player storage, and lets you browse, search, and sync music through a clean web interface.
 
 Works with any DAP (digital audio player) that presents itself as a USB drive — Rockbox players, iPods, Sony Walkmans, FiiO, Shanling, and more.
 
@@ -14,6 +14,10 @@ Works with any DAP (digital audio player) that presents itself as a USB drive �
 |---|---|---|
 | ![Artists view](docs/screenshots/library-artists.png) | ![Albums view](docs/screenshots/library-albums.png) | ![Album detail](docs/screenshots/album-detail.png) |
 
+| Player | Settings |
+|---|---|
+| ![Player view](docs/screenshots/player-view.png) | ![Settings](docs/screenshots/settings-players.png) |
+
 ## Features
 
 - **Library browser** — browse your music library by artist and album with search
@@ -21,16 +25,18 @@ Works with any DAP (digital audio player) that presents itself as a USB drive �
 - **Sync status tracking** — instantly see which albums are fully synced, partially synced, or not on the player
 - **Background sync** — copy tracks or entire albums with real-time progress tracking
 - **Player browser** — view and manage what's on the player, remove tracks
-- **Storage dashboard** — monitor player storage usage, top artists by size
-- **First-run setup wizard** — pick or create a managed directory on the player, auto-migrate existing files
-- **Incremental scanning** — only re-processes changed files on rescan
-- **Orphan detection** — flags files on the player that don't match anything in the library
+- **Storage dashboard** — monitor player storage usage
+- **Orphan detection** — flags files on the player that don't match anything in the library, with bulk delete
 - **Multi-player support** — manage multiple DAPs from a single instance
+- **Disconnect detection** — detects when a player is unplugged and prevents operations on stale mounts
+- **PWA support** — installable on iOS and Android home screens
+- **First-run setup wizard** — pick or create a managed directory on the player
+- **Incremental scanning** — only re-processes changed files on rescan
 
 ## How it works
 
 ```
-NAS                                Docker Container                    Player
+Host                               Docker Container                    Player
 ┌────────────────┐                ┌────────────────────┐             ┌──────────┐
 │ Music Library  │──── /library ──│       Crate        │── /player ──│   DAP    │
 │ (Lidarr, etc.) │   (read-only)  │  SvelteKit + SQLite│ (read-write)│  Device  │
@@ -59,12 +65,8 @@ services:
     volumes:
       - crate-data:/data
       - /path/to/your/music/library:/library:ro
-      # For single player mode (legacy):
-      # - /path/to/your/player:/player
-      # For multi-player mode (recommended for Unraid):
       - /mnt/disks:/mnt/disks:slave
     environment:
-      # For multi-player mode:
       - PLAYER_MOUNT_BASE=/mnt/disks
     restart: unless-stopped
 
@@ -72,13 +74,13 @@ volumes:
   crate-data:
 ```
 
-Replace `/path/to/your/music/library` with your NAS music share and `/mnt/disks` with the directory where your DAPs mount (on Unraid this is typically `/mnt/disks` for array disks and `/mnt/user` for user shares).
+Replace `/path/to/your/music/library` with the path to your music library and `/mnt/disks` with the directory where your DAPs are mounted.
 
 ```sh
 docker compose up -d
 ```
 
-Open `http://your-nas-ip:3000` and follow the setup wizard.
+Open `http://your-host-ip:3000` and follow the setup wizard.
 
 ### Docker run
 
@@ -99,7 +101,7 @@ docker run -d \
 |---|---|---|
 | `DATA_DIR` | `/data` | Where the SQLite database is stored |
 | `LIBRARY_PATH` | `/library` | Mount point for the music library |
-| `PLAYER_MOUNT_BASE` | `/player` | Base mount path for discovering players (e.g., `/mnt/disks` for Unraid) |
+| `PLAYER_MOUNT_BASE` | `/player` | Base path where player drives are mounted |
 | `PORT` | `3000` | HTTP server port |
 | `SCAN_INTERVAL` | `0` (disabled) | Auto-scan interval in minutes (e.g. `60` = rescan every hour) |
 
@@ -107,12 +109,12 @@ docker run -d \
 
 Crate can manage multiple DAPs from a single instance. Each DAP appears as a separate "player" in the interface:
 
-1. **Mount base path** — Set `PLAYER_MOUNT_BASE` to a directory containing your mounted drives (e.g., `/mnt/disks` on Unraid where USB drives auto-mount)
+1. **Mount base path** — Set `PLAYER_MOUNT_BASE` to a directory containing your mounted drives
 2. **Auto-discovery** — Crate automatically discovers devices in the mount base
 3. **Per-player sync** — Each player has its own managed directory and sync status
 4. **Quick switching** — Switch between active players from the sidebar dropdown
 
-When using multiple players, the player mount base should be a parent directory that contains individual player mounts. For example on Unraid:
+When using multiple players, the player mount base should be a parent directory that contains individual player mounts. For example:
 - `/mnt/disks/iPod_Classic` — your iPod
 - `/mnt/disks/FiiO_M11` — your FiiO player
 - `/mnt/disks/Sony_WM1A` — your Sony Walkman
@@ -144,13 +146,7 @@ npm run dev
 Requires local directories for testing:
 
 ```sh
-mkdir -p /tmp/crate-test/{library,data}
-
-# For single player testing:
-# mkdir -p /tmp/crate-test/player
-
-# For multi-player testing:
-mkdir -p /tmp/crate-test/players/{player1,player2}
+mkdir -p /tmp/crate-test/{library,data,players/player1,players/player2}
 
 DATA_DIR=/tmp/crate-test/data \
 LIBRARY_PATH=/tmp/crate-test/library \
