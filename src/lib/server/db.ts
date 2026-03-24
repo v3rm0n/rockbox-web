@@ -122,6 +122,16 @@ function migrate(db: Database.Database): void {
 		log.info('Added mb_artist_id column to library_tracks table');
 	}
 
+	// One-time: force re-extraction for all tracks so mb_artist_id gets populated
+	const mbMigrationDone = db.prepare(
+		"SELECT 1 FROM settings WHERE key = 'mb_artist_id_migrated'"
+	).get();
+	if (!mbMigrationDone) {
+		const updated = db.prepare("UPDATE library_tracks SET last_modified = 0").run();
+		db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('mb_artist_id_migrated', '1')").run();
+		log.info('Reset last_modified to force mb_artist_id extraction on next scan', { count: updated.changes });
+	}
+
 	// Add alias column to players table if missing
 	const hasAliasColumn = db.prepare(`
 		SELECT 1 FROM pragma_table_info('players') WHERE name = 'alias'
