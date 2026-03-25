@@ -77,14 +77,16 @@
 			<div class="sidebar-header">
 				<a href="/library" class="logo">
 					<svg class="logo-mark" viewBox="0 0 24 24" fill="none">
-						<circle cx="12" cy="8" r="5.5" fill="#2d2a25" stroke="var(--color-accent)" stroke-width="0.5" opacity="0.85"/>
-						<circle cx="12" cy="8" r="3.5" fill="none" stroke="#3a362f" stroke-width="0.4" opacity="0.5"/>
-						<circle cx="12" cy="8" r="1.5" fill="var(--color-accent)" opacity="0.9"/>
-						<circle cx="12" cy="8" r="0.5" fill="#1a1815"/>
-						<rect x="3" y="11" width="18" height="11" rx="1.5" fill="var(--color-accent)" opacity="0.85"/>
-						<rect x="3" y="15" width="18" height="0.75" rx="0.375" fill="#1a1815" opacity="0.2"/>
-						<rect x="3" y="18.5" width="18" height="0.75" rx="0.375" fill="#1a1815" opacity="0.2"/>
-						<rect x="8.5" y="13" width="7" height="1.5" rx="0.75" fill="#1a1815" opacity="0.35"/>
+						<circle cx="12" cy="7.5" r="4.5" fill="#2d2a25" opacity="0.85"/>
+						<circle cx="12" cy="7.5" r="3.5" fill="none" stroke="#4a463e" stroke-width="0.3" opacity="0.4"/>
+						<circle cx="12" cy="7.5" r="2.5" fill="none" stroke="#4a463e" stroke-width="0.3" opacity="0.3"/>
+						<circle cx="12" cy="7.5" r="1.25" fill="var(--color-accent)" opacity="0.9"/>
+						<circle cx="12" cy="7.5" r="0.35" fill="#1a1815"/>
+						<rect x="3.5" y="10.5" width="17" height="10.5" rx="1" fill="var(--color-accent)" opacity="0.85"/>
+						<rect x="3.5" y="10.5" width="17" height="2" rx="0.75" fill="var(--color-accent-hover)" opacity="0.6"/>
+						<rect x="3.5" y="15.5" width="17" height="0.5" rx="0.25" fill="#1a1815" opacity="0.15"/>
+						<rect x="3.5" y="18.5" width="17" height="0.5" rx="0.25" fill="#1a1815" opacity="0.15"/>
+						<rect x="8.5" y="13.5" width="7" height="1.25" rx="0.625" fill="#1a1815" opacity="0.3"/>
 					</svg>
 					<span class="logo-text">Crate</span>
 				</a>
@@ -183,14 +185,16 @@
 	<header class="mobile-topbar">
 		<a href="/library" class="logo">
 			<svg class="logo-mark" viewBox="0 0 24 24" fill="none">
-				<circle cx="12" cy="8" r="5.5" fill="#2d2a25" stroke="var(--color-accent)" stroke-width="0.5" opacity="0.85"/>
-				<circle cx="12" cy="8" r="3.5" fill="none" stroke="#3a362f" stroke-width="0.4" opacity="0.5"/>
-				<circle cx="12" cy="8" r="1.5" fill="var(--color-accent)" opacity="0.9"/>
-				<circle cx="12" cy="8" r="0.5" fill="#1a1815"/>
-				<rect x="3" y="11" width="18" height="11" rx="1.5" fill="var(--color-accent)" opacity="0.85"/>
-				<rect x="3" y="15" width="18" height="0.75" rx="0.375" fill="#1a1815" opacity="0.2"/>
-				<rect x="3" y="18.5" width="18" height="0.75" rx="0.375" fill="#1a1815" opacity="0.2"/>
-				<rect x="8.5" y="13" width="7" height="1.5" rx="0.75" fill="#1a1815" opacity="0.35"/>
+				<circle cx="12" cy="7.5" r="4.5" fill="#2d2a25" opacity="0.85"/>
+				<circle cx="12" cy="7.5" r="3.5" fill="none" stroke="#4a463e" stroke-width="0.3" opacity="0.4"/>
+				<circle cx="12" cy="7.5" r="2.5" fill="none" stroke="#4a463e" stroke-width="0.3" opacity="0.3"/>
+				<circle cx="12" cy="7.5" r="1.25" fill="var(--color-accent)" opacity="0.9"/>
+				<circle cx="12" cy="7.5" r="0.35" fill="#1a1815"/>
+				<rect x="3.5" y="10.5" width="17" height="10.5" rx="1" fill="var(--color-accent)" opacity="0.85"/>
+				<rect x="3.5" y="10.5" width="17" height="2" rx="0.75" fill="var(--color-accent-hover)" opacity="0.6"/>
+				<rect x="3.5" y="15.5" width="17" height="0.5" rx="0.25" fill="#1a1815" opacity="0.15"/>
+				<rect x="3.5" y="18.5" width="17" height="0.5" rx="0.25" fill="#1a1815" opacity="0.15"/>
+				<rect x="8.5" y="13.5" width="7" height="1.25" rx="0.625" fill="#1a1815" opacity="0.3"/>
 			</svg>
 			<span class="logo-text">Crate</span>
 		</a>
