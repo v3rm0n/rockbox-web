@@ -85,8 +85,15 @@ export async function recoverRunningJobs() {
 
 		const { jobs } = await res.json();
 		for (const job of jobs) {
+			// Only recover sync jobs into the sync overlay — library/player scans
+			// have their own UIs and would otherwise show as "Removing" here.
+			let type: 'copy' | 'remove';
+			if (job.type === 'sync_copy' || job.type === 'sync') type = 'copy';
+			else if (job.type === 'sync_remove') type = 'remove';
+			else continue;
+
 			if (!activeJobs.some(j => j.id === job.id)) {
-				trackJob(job.id, job.type === 'sync' ? 'copy' : 'remove');
+				trackJob(job.id, type);
 			}
 		}
 	} catch {

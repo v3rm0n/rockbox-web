@@ -3,10 +3,35 @@ import { getLibraryPath } from './settings.js';
 import { getPlayerManagedPath, getPlayer, isPlayerMounted } from './players.js';
 import { createLogger } from './logger.js';
 import fs from 'node:fs/promises';
-import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 const log = createLogger('sync');
+
+function isErrnoCode(err: unknown, code: string): boolean {
+	return err instanceof Error && (err as NodeJS.ErrnoException).code === code;
+}
+
+/**
+ * Walk up from `startDir`, removing empty directories until we reach `rootDir`
+ * or step outside it. Bounded by `path.relative` so a malformed relative path
+ * cannot make us rmdir directories above the player's managed root.
+ */
+async function pruneEmptyDirs(startDir: string, rootDir: string): Promise<void> {
+	const root = path.resolve(rootDir);
+	let dir = path.resolve(startDir);
+	while (dir !== root) {
+		const rel = path.relative(root, dir);
+		if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return;
+		try {
+			const entries = await fs.readdir(dir);
+			if (entries.length !== 0) return;
+			await fs.rmdir(dir);
+		} catch {
+			return;
+		}
+		dir = path.dirname(dir);
+	}
+}
 
 /**
  * Create a directory and all its parents, one level at a time.
@@ -30,7 +55,7 @@ async function ensureDir(targetDir: string): Promise<void> {
 		await fs.mkdir(targetDir);
 	} catch (err: unknown) {
 		// EEXIST is fine — another operation may have created it
-		if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EEXIST') {
+		if (isErrnoCode(err, 'EEXIST')) {
 			return;
 		}
 		throw err;
@@ -65,7 +90,7 @@ export function startCopyToPlayer(
 
 	log.info('Starting background copy to player', { playerId, trackCount: trackIds.length, managedPath });
 
-	const job = db.prepare("INSERT INTO jobs (type, status, total, player_id) VALUES ('sync', 'running', ?, ?)").run(trackIds.length, playerId);
+	const job = db.prepare("INSERT INTO jobs (type, status, total, player_id) VALUES ('sync_copy', 'running', ?, ?)").run(trackIds.length, playerId);
 	const jobId = Number(job.lastInsertRowid);
 
 	// Fire and forget — run the copy in the background
@@ -187,7 +212,7 @@ export function startRemoveFromPlayer(
 
 	log.info('Starting background removal from player', { playerId, trackCount: trackIds.length, managedPath });
 
-	const job = db.prepare("INSERT INTO jobs (type, status, total, player_id) VALUES ('sync', 'running', ?, ?)").run(trackIds.length, playerId);
+	const job = db.prepare("INSERT INTO jobs (type, status, total, player_id) VALUES ('sync_remove', 'running', ?, ?)").run(trackIds.length, playerId);
 	const jobId = Number(job.lastInsertRowid);
 
 	// Fire and forget
@@ -229,29 +254,24 @@ async function runRemove(
 
 			try {
 				try {
-					await fs.access(filePath);
 					await fs.unlink(filePath);
-
-					// Clean up empty parent directories
-					let dir = path.dirname(filePath);
-					while (dir !== managedPath) {
-						const entries = await fs.readdir(dir);
-						if (entries.length === 0) {
-							await fs.rmdir(dir);
-							dir = path.dirname(dir);
-						} else {
-							break;
-						}
-					}
-				} catch {
-					// File already gone, that's fine
+				} catch (err) {
+					// ENOENT is fine — file was already gone. Anything else is a real failure.
+					if (!isErrnoCode(err, 'ENOENT')) throw err;
 				}
+
+				await pruneEmptyDirs(path.dirname(filePath), managedPath);
 
 				deleteTrack.run(track.id, playerId);
 				removed++;
 			} catch (err) {
 				failed++;
 				const msg = err instanceof Error ? err.message : 'Unknown error';
+				log.error('Failed to remove track', {
+					relativePath: track.relative_path,
+					filePath,
+					error: msg
+				});
 				errors.push(`Failed to remove ${track.relative_path}: ${msg}`);
 			}
 

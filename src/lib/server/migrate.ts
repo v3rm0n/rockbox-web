@@ -146,20 +146,21 @@ export async function executeMigration(
 			fs.renameSync(srcPath, destPath);
 			moved++;
 
-			// Clean up empty source directories
-			let dir = path.dirname(srcPath);
-			while (dir !== managedPath) {
+			// Clean up empty source directories — bounded to managedPath so a
+			// malformed relative path can't make us rmdir above the player root.
+			const root = path.resolve(managedPath);
+			let dir = path.resolve(path.dirname(srcPath));
+			while (dir !== root) {
+				const rel = path.relative(root, dir);
+				if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) break;
 				try {
 					const entries = fs.readdirSync(dir);
-					if (entries.length === 0) {
-						fs.rmdirSync(dir);
-						dir = path.dirname(dir);
-					} else {
-						break;
-					}
+					if (entries.length !== 0) break;
+					fs.rmdirSync(dir);
 				} catch {
 					break;
 				}
+				dir = path.dirname(dir);
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : 'Unknown error';
