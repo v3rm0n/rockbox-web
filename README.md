@@ -27,11 +27,12 @@ Works with any DAP (digital audio player) that presents itself as a USB drive �
 - **Player browser** — view and manage what's on the player, remove tracks
 - **Storage dashboard** — monitor player storage usage
 - **Orphan detection** — flags files on the player that don't match anything in the library, with bulk delete
-- **Multi-player support** — manage multiple DAPs from a single instance
+- **Multi-player support** — manage multiple DAPs from a single instance, each with a friendly alias for the UI
 - **Disconnect detection** — detects when a player is unplugged and prevents operations on stale mounts
 - **PWA support** — installable on iOS and Android home screens
 - **First-run setup wizard** — pick or create a managed directory on the player
 - **Incremental scanning** — only re-processes changed files on rescan
+- **Artist name normalization** — groups artist tag variants (e.g. "The Beatles" / "Beatles") together by MusicBrainz ID
 
 ## How it works
 
@@ -104,6 +105,7 @@ docker run -d \
 | `PLAYER_MOUNT_BASE` | `/player` | Base path where player drives are mounted |
 | `PORT` | `3000` | HTTP server port |
 | `SCAN_INTERVAL` | `0` (disabled) | Auto-scan interval in minutes (e.g. `60` = rescan every hour) |
+| `LOG_LEVEL` | `info` | Set to `debug` for verbose server logs |
 
 ### Multi-player support
 
