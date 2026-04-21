@@ -79,6 +79,43 @@
 	let editingPlayer: Player | null = $state(null);
 	let showDeleteConfirm: number | null = $state(null);
 
+	// Reset application state
+	let showResetConfirm = $state(false);
+	let resetConfirmText = $state('');
+	let resetting = $state(false);
+	let resetError = $state<string | null>(null);
+
+	function openResetConfirm() {
+		showResetConfirm = true;
+		resetConfirmText = '';
+		resetError = null;
+	}
+
+	function closeResetConfirm() {
+		if (resetting) return;
+		showResetConfirm = false;
+		resetConfirmText = '';
+		resetError = null;
+	}
+
+	async function performReset() {
+		if (resetConfirmText !== 'RESET') return;
+		resetting = true;
+		resetError = null;
+		try {
+			const res = await fetch('/api/settings/reset', { method: 'POST' });
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error || `Request failed (${res.status})`);
+			}
+			// Database is gone — go through the setup wizard from scratch.
+			window.location.href = '/setup';
+		} catch (err) {
+			resetError = err instanceof Error ? err.message : String(err);
+			resetting = false;
+		}
+	}
+
 	async function loadData() {
 		const [settingsRes, jobsRes] = await Promise.all([
 			fetch('/api/settings'),
@@ -511,6 +548,23 @@
 				</div>
 			{/if}
 		</section>
+
+		<!-- Danger zone -->
+		<section class="section danger-zone">
+			<h2 class="section-title danger">Danger zone</h2>
+			<div class="danger-row">
+				<div class="danger-info">
+					<strong>Reset application</strong>
+					<span class="danger-desc">
+						Deletes the database — all settings, players, library index, sync state, and album art.
+						Files on your music library and on connected players are not touched.
+					</span>
+				</div>
+				<button class="btn-danger-small" onclick={openResetConfirm}>
+					Reset
+				</button>
+			</div>
+		</section>
 	{:else if activeTab === 'players'}
 		<section class="section">
 			<div class="section-header">
@@ -825,6 +879,48 @@
 					</button>
 				</div>
 			{/if}
+		</div>
+	</div>
+{/if}
+
+<!-- Reset Application Confirmation Modal -->
+{#if showResetConfirm}
+	<div class="modal-backdrop" onclick={closeResetConfirm}>
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<h3 class="modal-title danger">Reset application</h3>
+			<p class="modal-description">
+				This permanently deletes the application database — all settings, configured
+				players, library index, sync state, and stored album art.
+				<br /><br />
+				Files in your music library and on connected players are <strong>not</strong>
+				touched. After reset, you'll be taken back to the setup wizard.
+			</p>
+			<label class="reset-confirm-label">
+				Type <code>RESET</code> to confirm:
+				<input
+					type="text"
+					class="reset-confirm-input"
+					bind:value={resetConfirmText}
+					disabled={resetting}
+					autocomplete="off"
+					autocapitalize="characters"
+				/>
+			</label>
+			{#if resetError}
+				<p class="reset-error">{resetError}</p>
+			{/if}
+			<div class="modal-actions">
+				<button class="btn-cancel" onclick={closeResetConfirm} disabled={resetting}>
+					Cancel
+				</button>
+				<button
+					class="btn-confirm-delete"
+					onclick={performReset}
+					disabled={resetting || resetConfirmText !== 'RESET'}
+				>
+					{resetting ? 'Resetting...' : 'Reset everything'}
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}
@@ -1373,6 +1469,76 @@
 	.btn-danger-small:hover {
 		background: rgba(212, 80, 80, 0.1);
 		border-color: var(--color-danger);
+	}
+
+	/* Danger zone */
+	.danger-zone {
+		border-top: 1px solid var(--color-border-subtle);
+		padding-top: 1.5rem;
+	}
+
+	.section-title.danger,
+	.modal-title.danger {
+		color: var(--color-danger);
+	}
+
+	.danger-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.875rem 1rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+	}
+
+	.danger-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		min-width: 0;
+	}
+
+	.danger-info strong {
+		font-size: 0.875rem;
+		color: var(--color-text);
+	}
+
+	.danger-desc {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		line-height: 1.4;
+	}
+
+	.reset-confirm-label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+		margin: 1rem 0 0.5rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+	}
+
+	.reset-confirm-input {
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-family: inherit;
+		font-size: 0.875rem;
+	}
+
+	.reset-confirm-input:focus {
+		outline: none;
+		border-color: var(--color-danger);
+	}
+
+	.reset-error {
+		margin: 0.5rem 0 0;
+		color: var(--color-danger);
+		font-size: 0.8125rem;
 	}
 
 	/* Modal */

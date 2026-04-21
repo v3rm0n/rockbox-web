@@ -217,6 +217,46 @@ function migrateData(db: Database.Database): void {
 	}
 }
 
+/**
+ * Close the database, delete the SQLite files (including WAL/SHM siblings),
+ * and reset the lazy-init state so the next query recreates an empty DB with
+ * fresh migrations applied. Destructive — call only from explicit user action.
+ */
+export function resetDb(): void {
+	const dataDir = process.env.DATA_DIR || '/data';
+	const dbPath = path.join(dataDir, 'crate.db');
+
+	log.warn('Resetting database — wiping all application state', { dbPath });
+
+	if (_db) {
+		try {
+			_db.close();
+		} catch (err) {
+			log.warn('Error closing database during reset', {
+				error: err instanceof Error ? err.message : String(err)
+			});
+		}
+		_db = null;
+	}
+
+	// Remove the DB file and its WAL/SHM siblings. rm is used directly rather than
+	// rmSync-on-each so a missing sibling is not an error.
+	for (const suffix of ['', '-wal', '-shm']) {
+		const p = dbPath + suffix;
+		try {
+			if (fs.existsSync(p)) fs.rmSync(p);
+		} catch (err) {
+			log.error('Failed to remove database file during reset', {
+				file: p,
+				error: err instanceof Error ? err.message : String(err)
+			});
+			throw err;
+		}
+	}
+
+	log.info('Database reset complete — next access will create a fresh database');
+}
+
 // Proxy that lazily initializes the database on first access
 const db = new Proxy({} as Database.Database, {
 	get(_target, prop: string | symbol) {
